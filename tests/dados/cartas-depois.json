@@ -1,0 +1,4 @@
+[
+  {"dbfId": 1, "id": "TEST_001", "name": "Aprendiz fictício", "cost": 2, "attack": 2, "health": 4, "text": "<b>Grito de Guerra:</b> compre uma carta.", "cardClass": "MAGE", "set": "TEST"},
+  {"dbfId": 2, "id": "TEST_002", "name": "Escudo fictício", "cost": 2, "durability": 2, "armor": 2, "cardClass": "WARRIOR", "set": "TEST"}
+]

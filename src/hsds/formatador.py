@@ -1,0 +1,112 @@
+"""Textos do contrato de mensagens, com divisão somente entre linhas."""
+
+from datetime import date
+
+from hsds.blizzard import sem_html
+from hsds.diff import CAMPOS
+
+LIMITE = 4096
+
+
+def _versao(patch: dict) -> str:
+    return patch["versao"] or f"de {date.fromisoformat(patch['data']).strftime('%d/%m/%Y')}"
+
+
+def _limpar(texto) -> str:
+    return sem_html(texto or "").replace("[x]", "").replace("$", "").replace("#", "").strip()
+
+
+def _bloco(cartas: dict | None) -> str:
+    if cartas is None:
+        return "As cartas alteradas chegam em outra mensagem quando os dados forem publicados."
+    grupos = []
+    for chave, titulo in (("buffs", "Buffs"), ("nerfs", "Nerfs"), ("alteradas", "Alteradas")):
+        itens = cartas[chave]
+        if not itens:
+            continue
+        linhas = [f"{titulo} ({len(itens)})"]
+        for carta in sorted(itens, key=lambda item: (item["nome"] or "").casefold()):
+            numeros = []
+            texto = None
+            for mudanca in sorted(carta["mudancas"], key=lambda item: CAMPOS.index(item["campo"])):
+                if mudanca["campo"] == "texto":
+                    texto = f"texto novo: {_limpar(mudanca['depois'])}"
+                else:
+                    numeros.append(f"{mudanca['campo']} {mudanca['antes']} → {mudanca['depois']}")
+            descricao = ", ".join(numeros)
+            if texto is not None:
+                descricao = f"{descricao}; {texto}" if descricao else texto
+            linhas.append(f"• {_limpar(carta['nome'])}: {descricao}")
+        grupos.append("\n".join(linhas))
+    return "\n\n".join(grupos) or "Nenhuma carta colecionável mudou."
+
+
+def mensagens(texto: str, versao: str) -> list[str]:
+    if len(texto) <= LIMITE:
+        return [texto]
+    linhas = texto.split("\n")
+    total = 2
+    while True:
+        partes = []
+        atual = linhas[0] + f" (1/{total})"
+        if len(atual) > LIMITE:
+            raise ValueError("título excede o limite do Telegram")
+        for linha in linhas[1:]:
+            if len(atual) + 1 + len(linha) <= LIMITE:
+                atual += "\n" + linha
+                continue
+            partes.append(atual)
+            atual = f"Hearthstone DS: patch {versao} (continuação {len(partes) + 1}/{total})\n{linha}"
+            if len(atual) > LIMITE:
+                raise ValueError("linha excede o limite do Telegram; não é possível dividir uma carta")
+        partes.append(atual)
+        if len(partes) == total:
+            return partes
+        total = len(partes)
+
+
+def patch_novo(patch: dict) -> list[str]:
+    noticia = patch["noticia"]
+    versao = _versao(patch)
+    texto = (
+        f"Hearthstone DS: saiu o patch {versao}\n\n"
+        f"{noticia['titulo']}\n{noticia['link']}\n\n"
+        f"{noticia['resumo']}\n\n{_bloco(patch['cartas'])}"
+    )
+    return mensagens(texto, versao)
+
+
+def sem_portugues(patch: dict) -> list[str]:
+    noticia = patch["noticia_en"]
+    versao = _versao(patch)
+    referencia = f"{noticia['titulo']}\n{noticia['link']}" if noticia else "Notícias: https://hearthstone.blizzard.com/pt-br/news"
+    texto = (
+        f"Hearthstone DS: saiu o patch {versao} (notícia em português ainda não publicada)\n\n"
+        f"{referencia}\n\n{_bloco(patch['cartas'])}\n\n"
+        "Quando a notícia em português sair, mando o resumo."
+    )
+    return mensagens(texto, versao)
+
+
+def noticia_portugues(patch: dict) -> list[str]:
+    noticia = patch["noticia"]
+    versao = _versao(patch)
+    texto = (
+        f"Hearthstone DS: notícia em português do patch {versao}\n\n"
+        f"{noticia['titulo']}\n{noticia['link']}\n\n{noticia['resumo']}"
+    )
+    return mensagens(texto, versao)
+
+
+def cartas_atualizadas(patch: dict) -> list[str]:
+    versao = _versao(patch)
+    return mensagens(f"Hearthstone DS: cartas alteradas no patch {versao}\n\n{_bloco(patch['cartas'])}", versao)
+
+
+def falha(fonte: str, motivo: str) -> list[str]:
+    nome = {"blizzard": "notícias da Blizzard", "hearthstonejson": "HearthstoneJSON"}[fonte]
+    return [
+        f"Hearthstone DS: a coleta de {nome} falhou\n"
+        f"Motivo: {motivo}\n"
+        "Nada foi gravado. Se continuar falhando, aviso de novo em 24 horas."
+    ]

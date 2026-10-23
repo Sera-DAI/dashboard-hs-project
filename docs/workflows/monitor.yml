@@ -1,0 +1,46 @@
+name: monitor
+
+on:
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: monitor
+  cancel-in-progress: false
+
+jobs:
+  coletar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install -e .
+      - name: Executar monitor
+        id: monitor
+        run: python -m hsds.monitor
+        env:
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Versionar dados e avisos de falha
+        if: ${{ !cancelled() && steps.monitor.outcome != 'skipped' }}
+        shell: bash
+        run: |
+          if [ ! -d dados ]; then
+            exit 0
+          fi
+          git add dados
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Atualizar dados do monitor"
+          # Só o Actions grava dados/, então o rebase não conflita com pushes feitos na branch durante a execução.
+          git pull --rebase origin "$GITHUB_REF_NAME"
+          git push
