@@ -1,0 +1,19 @@
+# Segredos nunca são versionados.
+*.env
+*.env.*
+!*.env.example
+*.key
+*.pem
+
+# Saídas e dependências de desenvolvimento.
+.venv/
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+node_modules/
+dist/
+build/
+.wrangler/
+.DS_Store
+Thumbs.db
