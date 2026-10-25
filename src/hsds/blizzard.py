@@ -42,10 +42,12 @@ class Noticia:
     resumo: str
     publicada: str
     versao: str | None
+    texto: str = ""
 
     def dados(self) -> dict:
         dados = asdict(self)
         dados.pop("versao")
+        dados.pop("texto")
         return dados
 
 
@@ -70,6 +72,10 @@ def noticias(bruto: bytes, idioma: str) -> list[Noticia]:
             identificador = artigo["id"]
             titulo = artigo["title"]
             resumo = artigo["summary"]
+            texto = artigo.get("content")
+            # O texto só alimenta o resumo por IA; sem ele, a notícia continua válida.
+            if not isinstance(texto, str):
+                texto = ""
             publicada = artigo["publish"]
             if isinstance(identificador, bool) or not isinstance(identificador, int):
                 raise ValueError
@@ -88,6 +94,7 @@ def noticias(bruto: bytes, idioma: str) -> list[Noticia]:
                 sem_html(resumo),
                 datetime.fromtimestamp(publicada / 1000, timezone.utc).isoformat().replace("+00:00", "Z"),
                 versao.group() if versao else None,
+                sem_html(texto),
             ))
         return resultado
     except (KeyError, TypeError, ValueError, OverflowError, OSError):

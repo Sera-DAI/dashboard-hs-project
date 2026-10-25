@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from hsds import gravacao, http, monitor, telegram
+from hsds import blizzard, gravacao, http, monitor, resumo_ia, telegram
 
 DADOS = Path(__file__).parent / "dados"
 
@@ -25,7 +25,12 @@ def ambiente(tmp_path, monkeypatch):
         "envios": [],
         "erros": {},
         "telegram_falha": False,
+        "chamadas_resumo": [],
     }
+
+    def gerar(titulo, texto, idioma, cartas, chave, **kwargs):
+        contexto["chamadas_resumo"].append((titulo, idioma, cartas))
+        return ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."]
 
     def baixar(url, **kwargs):
         contexto["chamadas"].append(url)
@@ -50,6 +55,7 @@ def ambiente(tmp_path, monkeypatch):
 
     monkeypatch.setattr(http, "baixar", baixar)
     monkeypatch.setattr(telegram, "enviar_mensagem", enviar)
+    monkeypatch.setattr(resumo_ia, "gerar", gerar)
     monkeypatch.setattr(monitor, "_agora", lambda: contexto["agora"])
     return contexto
 
@@ -71,10 +77,22 @@ def noticia_pt(ambiente):
     ambiente["pt"] = (DADOS / "noticias-patch.json").read_bytes()
 
 
+def adicionar_noticia(ambiente, identificador, titulo, publicada):
+    dados = json.loads(ambiente["pt"])
+    dados["blogList"].append({
+        "id": identificador,
+        "title": titulo,
+        "summary": f"Resumo oficial fictício {identificador}.",
+        "content": f"Conteúdo original fictício da notícia {identificador}.",
+        "publish": publicada,
+    })
+    ambiente["pt"] = json.dumps(dados).encode()
+
+
 def test_linha_base_sem_aviso(ambiente):
     assert monitor.main() == 0
     estado = ler("estado.json")
-    assert estado == {"build": 255130, "noticias_vistas": [11, 10], "pendentes": [], "falhas": {}}
+    assert estado == {"build": 255130, "noticias_vistas": [11, 10], "pendentes": [], "falhas": {}, "resumos_pendentes": []}
     assert ler("cartas.json")["build"] == 255130
     assert ambiente["envios"] == []
     assert len(ambiente["chamadas"]) == 3
@@ -104,6 +122,9 @@ def test_patch_completo_e_sem_segundo_aviso(ambiente):
     assert patch["noticia"]["id"] == 12
     assert "content" not in patch["noticia"]
     assert patch["noticia_en"] is None
+    assert patch["resumo_ia"]["modelo"] == resumo_ia.MODELO
+    assert patch["resumo_ia"]["topicos"]
+    assert "texto" not in patch["noticia"]
     assert len(patch["cartas"]["buffs"]) == 1
     assert len(patch["cartas"]["nerfs"]) == 1
     assert ler("indice.json")["patches"] == [{"arquivo": "patches/2026-10-23-36.6.json", "versao": "36.6", "data": "2026-10-23", "buffs": 1, "nerfs": 1, "alteradas": 0}]
@@ -332,15 +353,33 @@ def test_patch_com_versao_diferente_nao_completa_pendente(ambiente):
     assert len(ler("estado.json")["pendentes"]) == 2
 
 
-def test_noticia_nao_patch_nao_envia_aviso(ambiente):
+def test_noticia_nova_grava_sem_texto_blizzard_e_atualiza_indice(ambiente):
     assert monitor.main() == 0
-    dados = json.loads(ambiente["pt"])
-    dados["blogList"][0]["id"] = 99
-    dados["blogList"][0]["title"] = "Uma novidade fictícia"
-    ambiente["pt"] = json.dumps(dados).encode()
+    adicionar_noticia(ambiente, 99, "Uma novidade fictícia", 1792760000000)
+    ambiente["chamadas"].clear()
     assert monitor.main() == 0
     assert 99 in ler("estado.json")["noticias_vistas"]
+    arquivo = "noticias/2026-10-23-99.json"
+    noticia = ler(arquivo)
+    assert noticia["id"] == 99
+    assert noticia["titulo"] == "Uma novidade fictícia"
+    assert "content" not in noticia and "resumo" not in noticia
+    assert noticia["resumo_ia"]["topicos"]
+    assert ler("noticias.json")["noticias"] == [{
+        "arquivo": arquivo,
+        "id": 99,
+        "titulo": "Uma novidade fictícia",
+        "data": "2026-10-23",
+    }]
+    assert ambiente["envios"][0].startswith("Hearthstone DS: notícia nova")
+    assert ambiente["chamadas"] == [monitor.LISTA.format(idioma="pt-br"), http.ULTIMA_BUILD]
+
+
+def test_noticias_ja_vistas_nao_geram_avisos(ambiente):
+    assert monitor.main() == 0
+    assert monitor.main() == 0
     assert not ambiente["envios"]
+    assert ler("noticias.json") is None
 
 
 def test_limita_noticias_vistas_a_cem(ambiente):
@@ -376,3 +415,107 @@ def test_falha_na_ultima_parte_do_telegram_nao_grava(ambiente, monkeypatch):
     assert monitor.main() == 1
     assert chamadas == 2
     assert arquivos() == antes
+
+
+def test_falha_do_resumo_nao_bloqueia_aviso_e_tenta_novamente(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+
+    def falhar(*_args, **_kwargs):
+        raise resumo_ia.ErroResumo("serviço fora do ar ou sem resposta")
+
+    monkeypatch.setattr(resumo_ia, "gerar", falhar)
+    assert monitor.main() == 0
+    arquivo = "patches/2026-10-23-36.6.json"
+    patch = ler(arquivo)
+    assert patch["resumo_ia"] is None
+    assert ler("estado.json")["resumos_pendentes"] == [{"arquivo": arquivo, "desde": "2026-10-23T18:17:00Z"}]
+    assert "saiu o patch 36.6" in ambiente["envios"][0]
+    assert "Resumo gerado por IA" not in ambiente["envios"][0]
+
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."])
+    ambiente["agora"] += timedelta(minutes=30)
+    assert monitor.main() == 0
+    assert ler("estado.json")["resumos_pendentes"] == []
+    assert len(ambiente["envios"]) == 2
+    assert ambiente["envios"][1].startswith("Hearthstone DS: resumo do patch 36.6")
+
+
+def test_resumo_pendente_expira_em_24_horas(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: (_ for _ in ()).throw(resumo_ia.ErroResumo("resposta inválida")))
+    assert monitor.main() == 0
+    ambiente["agora"] += timedelta(hours=24)
+    assert monitor.main() == 0
+    assert ler("estado.json")["resumos_pendentes"] == []
+
+
+def test_limita_tres_geracoes_prioriza_patch_e_noticias_mais_novas(ambiente):
+    assert monitor.main() == 0
+    dados = json.loads((DADOS / "noticias-patch.json").read_bytes())
+    for identificador, publicada in ((31, 1792785600000), (32, 1792789200000), (33, 1792792800000)):
+        dados["blogList"].append({
+            "id": identificador,
+            "title": f"Notícia fictícia {identificador}",
+            "summary": "Resumo oficial fictício.",
+            "content": f"Conteúdo original fictício {identificador}.",
+            "publish": publicada,
+        })
+    ambiente["pt"] = json.dumps(dados).encode()
+    ambiente["chamadas_resumo"].clear()
+    assert monitor.main() == 0
+    assert [chamada[0] for chamada in ambiente["chamadas_resumo"]] == [
+        "[Atualizado em 30/09/2026] Notas do patch 36.6",
+        "Notícia fictícia 33",
+        "Notícia fictícia 32",
+    ]
+    assert ambiente["envios"][0].startswith("Hearthstone DS: saiu o patch 36.6")
+    pendentes_noticias = ler("estado.json")["resumos_pendentes"]
+    assert [item["arquivo"] for item in pendentes_noticias] == ["noticias/2026-10-23-31.json"]
+
+
+def test_nova_tentativa_de_noticia_envia_mensagem_9(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    adicionar_noticia(ambiente, 77, "Novidade que falha", 1792760000000)
+
+    def falhar(*_args, **_kwargs):
+        raise resumo_ia.ErroResumo("serviço fora do ar ou sem resposta")
+
+    monkeypatch.setattr(resumo_ia, "gerar", falhar)
+    assert monitor.main() == 0
+    assert ler("noticias/2026-10-23-77.json")["resumo_ia"] is None
+    assert "Resumo gerado por IA" not in ambiente["envios"][0]
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: ["Loja: itens novos.", "Evento: começa hoje.", "Bugs: correções aplicadas."])
+    ambiente["agora"] += timedelta(minutes=30)
+    assert monitor.main() == 0
+    assert ambiente["envios"][1].startswith("Hearthstone DS: resumo da notícia\n\nNovidade que falha")
+    assert ler("noticias/2026-10-23-77.json")["resumo_ia"]["topicos"]
+    assert ler("estado.json")["resumos_pendentes"] == []
+
+
+
+def test_falha_ao_gerar_de_novo_mantem_resumo_anterior(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+    assert monitor.main() == 0
+    arquivo = ler("estado.json")["pendentes"][0]["arquivo"]
+    anterior = ler(arquivo)["resumo_ia"]
+    assert anterior["topicos"]
+
+    def falhar(*_args, **_kwargs):
+        raise resumo_ia.ErroResumo("limite de uso atingido")
+
+    monkeypatch.setattr(resumo_ia, "gerar", falhar)
+    nova_build(ambiente)
+    assert monitor.main() == 0
+    assert ler(arquivo)["resumo_ia"] == anterior
+    assert ler("estado.json")["resumos_pendentes"] == []
+    assert ambiente["envios"][1].startswith("Hearthstone DS: cartas alteradas no patch 36.6")
+    assert "Resumo gerado por IA" in ambiente["envios"][1]
+
+
+def test_noticia_sem_texto_continua_valida():
+    bruto = json.dumps({"blogList": [{"id": 1, "title": "Notas do patch 36.6", "summary": "Resumo.", "content": None, "publish": 1792771200000}]}).encode()
+    noticia = blizzard.noticias(bruto, "pt-br")[0]
+    assert noticia.texto == ""

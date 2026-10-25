@@ -83,6 +83,53 @@ def test_limite_exato():
     assert formatador.mensagens("a" * 4096, "36.6") == ["a" * 4096]
 
 
+def test_resumo_aparece_nas_mensagens_de_patch_e_atrasado():
+    dado = patch({"buffs": [], "nerfs": [], "alteradas": []})
+    dado["resumo_ia"] = {"topicos": ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."]}
+    bloco = "Resumo gerado por IA\n\nArena recebe ajustes.\n\nNovo evento chega.\n\nBugs importantes corrigidos."
+    assert f"Resumo fictício.\n\n{bloco}\n\n" in formatador.patch_novo(dado)[0]
+    assert formatador.noticia_portugues(dado)[0].endswith(f"Resumo fictício.\n\n{bloco}")
+    assert f"{bloco}\n\nNenhuma carta colecionável mudou." in formatador.cartas_atualizadas(dado)[0]
+    assert formatador.resumo_atrasado(dado)[0].endswith("https://exemplo.invalid/pt")
+
+
+def test_mensagem_de_teste_e_falha_seguem_contrato():
+    noticia = {"titulo": "Notas do patch 36.6", "link": "https://exemplo.invalid/pt"}
+    assert formatador.resumo_teste(noticia, ["Um.", "Dois.", "Três."]) == [
+        "Hearthstone DS: teste do resumo por IA\n\nNotas do patch 36.6\nhttps://exemplo.invalid/pt\n\n"
+        "Resumo gerado por IA\n\nUm.\n\nDois.\n\nTrês."
+    ]
+    assert formatador.resumo_teste_falhou("resposta inválida") == [
+        "Hearthstone DS: o teste do resumo por IA falhou\nMotivo: resposta inválida"
+    ]
+
+
+def test_noticia_nova_com_e_sem_resumo():
+    noticia = {"titulo": "Novidades fictícias", "link": "https://exemplo.invalid/noticia", "resumo": "Resumo oficial."}
+    resumo = {"topicos": ["🛒 Loja: chegam itens novos.", "🎁 Presente: há uma recompensa.", "🐛 Correções: bugs foram corrigidos."]}
+    mensagem = formatador.noticia_nova(noticia, resumo)[0]
+    assert mensagem == (
+        "Hearthstone DS: notícia nova\n\nNovidades fictícias\nhttps://exemplo.invalid/noticia"
+        "\n\nResumo oficial.\n\nResumo gerado por IA\n\n"
+        "🛒 Loja: chegam itens novos.\n\n🎁 Presente: há uma recompensa.\n\n🐛 Correções: bugs foram corrigidos."
+    )
+    sem_resumo = formatador.noticia_nova(noticia, None)[0]
+    assert sem_resumo.endswith("Resumo oficial.")
+    assert "Resumo gerado por IA" not in sem_resumo
+
+
+def test_resumo_atrasado_de_noticia_segue_mensagem_9():
+    noticia = {
+        "titulo": "Novidades fictícias",
+        "link": "https://exemplo.invalid/noticia",
+        "resumo_ia": {"topicos": ["Loja: chegam itens.", "Evento: começa hoje.", "Bugs: ajustes aplicados."]},
+    }
+    assert formatador.resumo_noticia(noticia)[0] == (
+        "Hearthstone DS: resumo da notícia\n\nNovidades fictícias\nhttps://exemplo.invalid/noticia\n\n"
+        "Resumo gerado por IA\n\nLoja: chegam itens.\n\nEvento: começa hoje.\n\nBugs: ajustes aplicados."
+    )
+
+
 def test_carta_que_excede_uma_parte_nao_e_truncada():
     with pytest.raises(ValueError, match="não é possível dividir uma carta"):
         formatador.mensagens("Título\n• " + "a" * 4096, "36.6")

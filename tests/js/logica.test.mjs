@@ -9,7 +9,9 @@ import {
   lerRota,
   nomeClasse,
   normalizar,
-  rotaPatch
+  rotaNoticia,
+  rotaPatch,
+  topicosDoResumo
 } from "../../site/js/logica.js";
 
 const cartasDados = JSON.parse(await readFile(new URL("./dados/cartas.json", import.meta.url), "utf8"));
@@ -48,7 +50,12 @@ test("lê rotas de patch e carta e monta o hash do patch", () => {
     arquivo: "patches/2026-10-23-36.6.json"
   });
   assert.deepEqual(lerRota("#carta/559"), { tipo: "carta", dbfId: "559" });
+  assert.deepEqual(lerRota("#noticia/noticias/2026-10-24-24310001.json"), {
+    tipo: "noticia",
+    arquivo: "noticias/2026-10-24-24310001.json"
+  });
   assert.equal(rotaPatch("patches/2026-10-23-36.6.json"), "#patch/patches/2026-10-23-36.6.json");
+  assert.equal(rotaNoticia("noticias/2026-10-24-24310001.json"), "#noticia/noticias/2026-10-24-24310001.json");
 });
 
 test("retorna histórico da carta em ordem do mais novo para o mais antigo", () => {
@@ -93,6 +100,15 @@ test("higieniza marcação sem perder negrito, itálico ou texto de tags desconh
 test("rota desconhecida volta ao início e histórico ignora patches sem cartas", () => {
   assert.deepEqual(lerRota("#patch/outro.json"), { tipo: "inicio" });
   assert.deepEqual(historicoDaCarta("559", [{ cartas: null }]), []);
+});
+
+test("retorna tópicos apenas quando o resumo tem o formato esperado", () => {
+  assert.deepEqual(topicosDoResumo({ resumo_ia: { topicos: ["<script>alert(1)</script>"] } }), [
+    "<script>alert(1)</script>"
+  ]);
+  assert.deepEqual(topicosDoResumo({ resumo_ia: null }), []);
+  assert.deepEqual(topicosDoResumo({ resumo_ia: { topicos: "inválido" } }), []);
+  assert.deepEqual(topicosDoResumo({ resumo_ia: { topicos: ["válido", 2] } }), []);
 });
 
 test("traduz a classe da carta e mantém valores desconhecidos", () => {

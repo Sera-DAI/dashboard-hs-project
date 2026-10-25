@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Hearthstone DS</title>
-  <meta name="description" content="Monitor pessoal de patch notes de Hearthstone: histórico de patches, cartas alteradas e busca por carta.">
+  <meta name="description" content="Monitor pessoal de patch notes de Hearthstone: histórico de patches, cartas alteradas, notícias resumidas e busca por carta.">
   <meta name="color-scheme" content="dark">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -29,9 +29,11 @@
     </header>
 
     <div class="corpo">
-      <nav class="lista" aria-label="Patches">
+      <nav class="lista" aria-label="Patches e notícias">
         <p class="rotulo">Patches gravados</p>
         <ol id="lista-patches"></ol>
+        <p class="rotulo rotulo-noticias" id="rotulo-noticias" hidden>Notícias</p>
+        <ol id="lista-noticias" hidden></ol>
       </nav>
 
       <main class="detalhe" id="detalhe" aria-live="polite" tabindex="-1">
@@ -71,6 +73,11 @@
         <h2 class="titulo" data-campo="titulo"></h2>
         <div class="meta"><time data-campo="data"></time><a class="link" data-campo="link" href="#" rel="noopener"><span data-campo="link-texto">Notícia oficial</span> <span aria-hidden="true">→</span></a></div>
       </header>
+      <section class="resumo-ia" data-campo="resumo-ia" aria-labelledby="resumo-ia-titulo" hidden>
+        <h3 id="resumo-ia-titulo"><span class="selo-ia"><span aria-hidden="true">✦</span> Resumo gerado por IA</span></h3>
+        <ul class="topicos" data-campo="topicos"></ul>
+        <p class="nota-ia">Escrito por IA a partir da <a data-campo="resumo-link" href="#" rel="noopener">notícia oficial</a>; os números das cartas vêm dos dados abaixo.</p>
+      </section>
       <div class="totais">
         <div class="total b"><small>Buffs</small><b data-campo="buffs" data-contar></b></div>
         <div class="total n"><small>Nerfs</small><b data-campo="nerfs" data-contar></b></div>
@@ -78,6 +85,33 @@
       </div>
       <div class="grupos" data-campo="grupos"></div>
     </article>
+  </template>
+
+  <template id="tpl-noticia-item">
+    <li><button type="button" class="patch noticia-item" aria-current="false">
+      <span class="titulo-noticia" data-campo="titulo"></span>
+      <time data-campo="data"></time>
+    </button></li>
+  </template>
+
+  <template id="tpl-noticia">
+    <article class="patch-detalhe noticia-detalhe">
+      <header>
+        <p class="tipo">Notícia</p>
+        <h2 class="titulo" data-campo="titulo"></h2>
+        <div class="meta"><time data-campo="data"></time><a class="link" data-campo="link" href="#" rel="noopener">Notícia oficial <span aria-hidden="true">→</span></a></div>
+      </header>
+      <section class="resumo-ia" data-campo="resumo-ia" aria-labelledby="resumo-noticia-titulo" hidden>
+        <h3 id="resumo-noticia-titulo"><span class="selo-ia"><span aria-hidden="true">✦</span> Resumo gerado por IA</span></h3>
+        <ul class="topicos" data-campo="topicos"></ul>
+        <p class="nota-ia">Escrito por IA a partir da <a data-campo="resumo-link" href="#" rel="noopener">notícia oficial</a>.</p>
+      </section>
+      <p class="vazio" data-campo="sem-resumo" hidden>O resumo desta notícia ainda não ficou pronto. Enquanto isso, a notícia completa está no link acima.</p>
+    </article>
+  </template>
+
+  <template id="tpl-topico">
+    <li class="topico" data-campo="texto"></li>
   </template>
 
   <template id="tpl-grupo">

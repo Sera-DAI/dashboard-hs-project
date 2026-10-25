@@ -90,6 +90,12 @@ def test_noticia_sem_content_e_sem_html():
     assert "versao" not in noticia.dados()
 
 
+def test_conteudo_da_noticia_fica_somente_em_memoria():
+    noticia = blizzard.noticias((DADOS / "noticias-patch.json").read_bytes(), "pt-br")[0]
+    assert noticia.texto == "Não reter este conteúdo."
+    assert "texto" not in noticia.dados()
+
+
 @pytest.mark.parametrize("leitor,fonte", [(lambda bruto: blizzard.noticias(bruto, "pt-br"), "blizzard"), (lambda bruto: hearthstonejson.cartas(bruto, 1), "hearthstonejson")])
 @pytest.mark.parametrize("bruto,motivo", [(b"{", "JSON inválido"), (b"\xff", "JSON inválido"), (b"{}", "formato da resposta mudou"), (b"[{}]", "formato da resposta mudou")])
 def test_formatos_invalidos(leitor, fonte, bruto, motivo):

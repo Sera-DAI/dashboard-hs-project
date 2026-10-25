@@ -41,6 +41,18 @@ def _bloco(cartas: dict | None) -> str:
     return "\n\n".join(grupos) or "Nenhuma carta colecionável mudou."
 
 
+def _bloco_resumo(patch: dict) -> str:
+    resumo = patch.get("resumo_ia")
+    if not isinstance(resumo, dict) or not isinstance(resumo.get("topicos"), list):
+        return ""
+    return "Resumo gerado por IA\n\n" + "\n\n".join(resumo["topicos"])
+
+
+def _anexar_resumo(texto: str, patch: dict) -> str:
+    bloco = _bloco_resumo(patch)
+    return f"{texto}\n\n{bloco}" if bloco else texto
+
+
 def mensagens(texto: str, versao: str) -> list[str]:
     if len(texto) <= LIMITE:
         return [texto]
@@ -68,11 +80,15 @@ def mensagens(texto: str, versao: str) -> list[str]:
 def patch_novo(patch: dict) -> list[str]:
     noticia = patch["noticia"]
     versao = _versao(patch)
-    texto = (
-        f"Hearthstone DS: saiu o patch {versao}\n\n"
-        f"{noticia['titulo']}\n{noticia['link']}\n\n"
-        f"{noticia['resumo']}\n\n{_bloco(patch['cartas'])}"
-    )
+    partes = [
+        f"Hearthstone DS: saiu o patch {versao}",
+        f"{noticia['titulo']}\n{noticia['link']}",
+        noticia["resumo"],
+    ]
+    if _bloco_resumo(patch):
+        partes.append(_bloco_resumo(patch))
+    partes.append(_bloco(patch["cartas"]))
+    texto = "\n\n".join(partes)
     return mensagens(texto, versao)
 
 
@@ -80,11 +96,11 @@ def sem_portugues(patch: dict) -> list[str]:
     noticia = patch["noticia_en"]
     versao = _versao(patch)
     referencia = f"{noticia['titulo']}\n{noticia['link']}" if noticia else "Notícias: https://hearthstone.blizzard.com/pt-br/news"
-    texto = (
-        f"Hearthstone DS: saiu o patch {versao} (notícia em português ainda não publicada)\n\n"
-        f"{referencia}\n\n{_bloco(patch['cartas'])}\n\n"
-        "Quando a notícia em português sair, mando o resumo."
-    )
+    partes = [f"Hearthstone DS: saiu o patch {versao} (notícia em português ainda não publicada)", referencia]
+    if _bloco_resumo(patch):
+        partes.append(_bloco_resumo(patch))
+    partes.extend([_bloco(patch["cartas"]), "Quando a notícia em português sair, mando o resumo."])
+    texto = "\n\n".join(partes)
     return mensagens(texto, versao)
 
 
@@ -95,12 +111,58 @@ def noticia_portugues(patch: dict) -> list[str]:
         f"Hearthstone DS: notícia em português do patch {versao}\n\n"
         f"{noticia['titulo']}\n{noticia['link']}\n\n{noticia['resumo']}"
     )
-    return mensagens(texto, versao)
+    return mensagens(_anexar_resumo(texto, patch), versao)
 
 
 def cartas_atualizadas(patch: dict) -> list[str]:
     versao = _versao(patch)
-    return mensagens(f"Hearthstone DS: cartas alteradas no patch {versao}\n\n{_bloco(patch['cartas'])}", versao)
+    partes = [f"Hearthstone DS: cartas alteradas no patch {versao}"]
+    if _bloco_resumo(patch):
+        partes.append(_bloco_resumo(patch))
+    partes.append(_bloco(patch["cartas"]))
+    return mensagens("\n\n".join(partes), versao)
+
+
+def resumo_atrasado(patch: dict) -> list[str]:
+    versao = _versao(patch)
+    noticia = patch.get("noticia") or patch.get("noticia_en")
+    link = noticia.get("link", "") if noticia else ""
+    texto = f"Hearthstone DS: resumo do patch {versao}\n\n{_bloco_resumo(patch)}\n\n{link}"
+    return mensagens(texto, versao)
+
+
+def resumo_teste(noticia: dict, topicos: list[str]) -> list[str]:
+    texto = (
+        "Hearthstone DS: teste do resumo por IA\n\n"
+        f"{noticia['titulo']}\n{noticia['link']}\n\n"
+        "Resumo gerado por IA\n\n" + "\n\n".join(topicos)
+    )
+    return mensagens(texto, "teste")
+
+
+def resumo_teste_falhou(motivo: str) -> list[str]:
+    return [f"Hearthstone DS: o teste do resumo por IA falhou\nMotivo: {motivo}"]
+
+
+def noticia_nova(noticia: dict, resumo_ia: dict | None) -> list[str]:
+    partes = [
+        "Hearthstone DS: notícia nova",
+        f"{noticia['titulo']}\n{noticia['link']}",
+        noticia.get("resumo", ""),
+    ]
+    bloco = _bloco_resumo({"resumo_ia": resumo_ia})
+    if bloco:
+        partes.append(bloco)
+    return mensagens("\n\n".join(parte for parte in partes if parte), "notícia")
+
+
+def resumo_noticia(noticia: dict) -> list[str]:
+    bloco = _bloco_resumo(noticia)
+    texto = (
+        "Hearthstone DS: resumo da notícia\n\n"
+        f"{noticia['titulo']}\n{noticia['link']}\n\n{bloco}"
+    )
+    return mensagens(texto, "notícia")
 
 
 def falha(fonte: str, motivo: str) -> list[str]:

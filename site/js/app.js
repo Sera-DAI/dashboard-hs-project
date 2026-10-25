@@ -6,12 +6,16 @@ import {
   historicoDaCarta,
   lerRota,
   nomeClasse,
-  rotaPatch
+  rotaNoticia,
+  rotaPatch,
+  topicosDoResumo
 } from "./logica.js";
 import { iniciarEfeitos } from "./efeitos.js";
 
 const porId = (id) => document.getElementById(id);
 const lista = porId("lista-patches");
+const listaNoticias = porId("lista-noticias");
+const rotuloNoticias = porId("rotulo-noticias");
 const conteudo = porId("conteudo");
 const campoBusca = porId("busca");
 const resultadosBusca = porId("busca-resultados");
@@ -21,6 +25,7 @@ const estadoErro = porId("estado-erro");
 const efeitos = iniciarEfeitos();
 
 let indice;
+let indiceNoticias = [];
 let cartasCache;
 let rotaAnterior = "";
 let resultadoAtivo = -1;
@@ -43,7 +48,23 @@ async function iniciar() {
       throw new Error("Índice inválido");
     }
 
+    let respostaNoticias;
+    try {
+      respostaNoticias = await fetchJson("dados/noticias.json");
+    } catch (erro) {
+      if (erro.status !== 404) {
+        throw erro;
+      }
+      respostaNoticias = { noticias: [] };
+    }
+    if (!Array.isArray(respostaNoticias.noticias)) {
+      throw new Error("Índice de notícias inválido");
+    }
+
     indice = resposta.patches.map(validarEntrada).sort((a, b) =>
+      String(b.data).localeCompare(String(a.data))
+    );
+    indiceNoticias = respostaNoticias.noticias.map(validarEntradaNoticia).sort((a, b) =>
       String(b.data).localeCompare(String(a.data))
     );
     renderizarLista();
@@ -54,6 +75,13 @@ async function iniciar() {
   } catch {
     mostrarErro();
   }
+}
+
+function validarEntradaNoticia(entrada) {
+  if (!entrada || typeof entrada.arquivo !== "string" || typeof entrada.data !== "string" || typeof entrada.titulo !== "string") {
+    throw new Error("Entrada de notícia inválida");
+  }
+  return { arquivo: entrada.arquivo, data: entrada.data, titulo: entrada.titulo };
 }
 
 function validarEntrada(entrada) {
@@ -100,6 +128,21 @@ function renderizarLista() {
     });
     lista.append(item);
   });
+
+  listaNoticias.replaceChildren();
+  rotuloNoticias.hidden = indiceNoticias.length === 0;
+  listaNoticias.hidden = indiceNoticias.length === 0;
+  indiceNoticias.forEach((noticia, ordem) => {
+    const item = clonar("tpl-noticia-item");
+    const botao = item.querySelector(".patch");
+    preencher(item, "titulo", noticia.titulo);
+    preencherData(item.querySelector('[data-campo="data"]'), noticia.data);
+    botao.style.setProperty("--i", ordem);
+    botao.addEventListener("click", () => {
+      window.location.hash = rotaNoticia(noticia.arquivo);
+    });
+    listaNoticias.append(item);
+  });
 }
 
 async function renderizarRota() {
@@ -116,11 +159,34 @@ async function renderizarRota() {
   try {
     if (rota.tipo === "carta") {
       await renderizarCarta(rota.dbfId, renderizacao);
+    } else if (rota.tipo === "noticia") {
+      const entrada = indiceNoticias.find((noticia) => noticia.arquivo === rota.arquivo);
+      if (!entrada) {
+        throw new Error("Notícia não encontrada");
+      }
+      const noticia = await carregarNoticia(entrada.arquivo);
+      if (renderizacao !== numeroRenderizacao) {
+        return;
+      }
+      renderizarDetalheNoticia(noticia, entrada);
+      rotaAnterior = window.location.hash || rotaNoticia(entrada.arquivo);
+      marcarAtivos("", entrada.arquivo);
     } else {
       const arquivo = rota.tipo === "patch" ? rota.arquivo : indice[0]?.arquivo;
       const entrada = indice.find((patch) => patch.arquivo === arquivo);
       if (!entrada) {
-        if (!indice.length && rota.tipo === "inicio") {
+        if (rota.tipo === "inicio" && !indice.length && indiceNoticias.length) {
+          const noticia = indiceNoticias[0];
+          const dados = await carregarNoticia(noticia.arquivo);
+          if (renderizacao !== numeroRenderizacao) {
+            return;
+          }
+          renderizarDetalheNoticia(dados, noticia);
+          rotaAnterior = rotaNoticia(noticia.arquivo);
+          marcarAtivos("", noticia.arquivo);
+          return;
+        }
+        if (!indice.length && !indiceNoticias.length && rota.tipo === "inicio") {
           mostrarVazio();
           return;
         }
@@ -132,7 +198,7 @@ async function renderizarRota() {
       }
       renderizarDetalhe(patch, entrada);
       rotaAnterior = window.location.hash || rotaPatch(entrada.arquivo);
-      marcarPatchAtivo(entrada.arquivo);
+      marcarAtivos(entrada.arquivo, "");
     }
   } catch {
     if (renderizacao === numeroRenderizacao) {
@@ -143,6 +209,52 @@ async function renderizarRota() {
       estadoCarregando.hidden = true;
     }
   }
+}
+
+async function carregarNoticia(arquivo) {
+  if (!/^noticias\/[\w.-]+\.json$/.test(arquivo)) {
+    throw new Error("Caminho de notícia inválido");
+  }
+  const noticia = await fetchJson(`dados/${arquivo}`);
+  if (!noticia || typeof noticia !== "object") {
+    throw new Error("Notícia inválida");
+  }
+  return noticia;
+}
+
+function renderizarDetalheNoticia(noticia, entrada) {
+  const detalhe = clonar("tpl-noticia");
+  preencher(detalhe, "titulo", noticia.titulo ?? entrada.titulo);
+  preencherData(detalhe.querySelector('[data-campo="data"]'), noticia.publicada?.slice(0, 10) ?? entrada.data);
+  const link = detalhe.querySelector('[data-campo="link"]');
+  if (noticia.link) {
+    link.href = noticia.link;
+  } else {
+    link.hidden = true;
+  }
+  const topicos = topicosDoResumo(noticia);
+  const resumo = detalhe.querySelector('[data-campo="resumo-ia"]');
+  if (topicos.length) {
+    resumo.hidden = false;
+    topicos.forEach((topico, ordem) => {
+      const item = clonar("tpl-topico");
+      const elemento = item.querySelector('[data-campo="texto"]');
+      elemento.textContent = topico;
+      elemento.style.setProperty("--i", ordem);
+      resumo.querySelector('[data-campo="topicos"]').append(item);
+    });
+    const linkResumo = resumo.querySelector('[data-campo="resumo-link"]');
+    if (noticia.link) {
+      linkResumo.href = noticia.link;
+    } else {
+      linkResumo.hidden = true;
+    }
+  } else {
+    resumo.hidden = true;
+    detalhe.querySelector('[data-campo="sem-resumo"]').hidden = false;
+  }
+  conteudo.append(detalhe);
+  efeitos.revelarTitulos(conteudo);
 }
 
 async function carregarPatch(arquivo) {
@@ -179,6 +291,26 @@ function renderizarDetalhe(patch, entrada) {
     }
   } else {
     link.hidden = true;
+  }
+
+  const resumo = detalhe.querySelector('[data-campo="resumo-ia"]');
+  const topicos = topicosDoResumo(patch);
+  if (topicos.length) {
+    resumo.hidden = false;
+    const listaTopicos = resumo.querySelector('[data-campo="topicos"]');
+    topicos.forEach((topico, ordem) => {
+      const item = clonar("tpl-topico");
+      const elemento = item.querySelector('[data-campo="texto"]');
+      elemento.textContent = topico;
+      elemento.style.setProperty("--i", ordem);
+      listaTopicos.append(item);
+    });
+    const linkResumo = resumo.querySelector('[data-campo="resumo-link"]');
+    if (noticia?.link) {
+      linkResumo.href = noticia.link;
+    } else {
+      linkResumo.hidden = true;
+    }
   }
 
   const grupos = detalhe.querySelector('[data-campo="grupos"]');
@@ -321,7 +453,7 @@ async function renderizarCarta(dbfId, renderizacao) {
 
   ficha.querySelector('[data-campo="sem-historico"]').hidden = historico.length > 0;
   conteudo.append(ficha);
-  marcarPatchAtivo("");
+  marcarAtivos("", "");
   efeitos.revelarTitulos(conteudo);
   efeitos.contar(conteudo);
 }
@@ -450,6 +582,13 @@ function marcarPatchAtivo(arquivo) {
   lista.querySelectorAll(".patch").forEach((botao, ordem) => {
     const ativo = indice[ordem]?.arquivo === arquivo;
     botao.setAttribute("aria-current", String(ativo));
+  });
+}
+
+function marcarAtivos(arquivoPatch, arquivoNoticia) {
+  marcarPatchAtivo(arquivoPatch);
+  listaNoticias.querySelectorAll(".patch").forEach((botao, ordem) => {
+    botao.setAttribute("aria-current", String(indiceNoticias[ordem]?.arquivo === arquivoNoticia));
   });
 }
 

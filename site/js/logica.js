@@ -93,6 +93,11 @@ export function lerRota(hash) {
     return { tipo: "patch", arquivo: patch[1] };
   }
 
+  const noticia = valor.match(/^noticia\/(noticias\/[^/]+\.json)$/);
+  if (noticia) {
+    return { tipo: "noticia", arquivo: noticia[1] };
+  }
+
   const carta = valor.match(/^carta\/(\d+)$/);
   if (carta) {
     return { tipo: "carta", dbfId: carta[1] };
@@ -105,6 +110,10 @@ export function rotaPatch(arquivo) {
   return `#patch/${String(arquivo).replace(/^\/+/, "")}`;
 }
 
+export function rotaNoticia(arquivo) {
+  return `#noticia/${String(arquivo).replace(/^\/+/, "")}`;
+}
+
 export function historicoDaCarta(dbfId, patches) {
   return [...(patches ?? [])]
     .filter((patch) => {
@@ -114,6 +123,14 @@ export function historicoDaCarta(dbfId, patches) {
       );
     })
     .sort((a, b) => String(b.data).localeCompare(String(a.data)));
+}
+
+export function topicosDoResumo(patch) {
+  const topicos = patch?.resumo_ia?.topicos;
+  if (!Array.isArray(topicos) || topicos.some((topico) => typeof topico !== "string")) {
+    return [];
+  }
+  return topicos;
 }
 
 export function formatarCampo(campo, valor) {
