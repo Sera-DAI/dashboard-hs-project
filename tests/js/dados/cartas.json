@@ -1,0 +1,35 @@
+{
+  "build": 255130,
+  "cartas": {
+    "559": {
+      "nome": "Leeroy Jenkins",
+      "classe": "NEUTRAL",
+      "custo": 5,
+      "ataque": 6,
+      "vida": 2,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "[x] <b>Investida</b>. <script>alert(1)</script> <img src=x onerror=alert(1)> $2 #3\nFim"
+    },
+    "9001": {
+      "nome": "Poção Volátil",
+      "classe": "MAGE",
+      "custo": 2,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "<i>Descubra</i> uma carta."
+    },
+    "9002": {
+      "nome": "Leeroy Aprendiz",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "Aprendiz."
+    }
+  }
+}

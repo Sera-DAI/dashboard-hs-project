@@ -2,21 +2,139 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Hearthstone DS</title>
-  <style>
-    :root { color-scheme: light dark; --fundo: #f6f1e7; --texto: #2b2118; --suave: #6b5a48; }
-    @media (prefers-color-scheme: dark) { :root { --fundo: #1c1712; --texto: #f3e9d8; --suave: #b9a68c; } }
-    body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--fundo); color: var(--texto); font: 1rem/1.5 system-ui, sans-serif; padding: 16px; box-sizing: border-box; }
-    main { max-width: 32rem; text-align: center; }
-    h1 { font-size: 1.75rem; margin: 0 0 .5rem; }
-    p { color: var(--suave); margin: 0; }
-  </style>
+  <meta name="description" content="Monitor pessoal de patch notes de Hearthstone: histórico de patches, cartas alteradas e busca por carta.">
+  <meta name="color-scheme" content="dark">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="css/taverna.css">
 </head>
 <body>
-  <main>
-    <h1>Hearthstone DS</h1>
-    <p>Em construção. O histórico de patches chega no marco M2.</p>
-  </main>
+  <a class="pular" href="#detalhe">Pular para o conteúdo</a>
+  <div class="app" id="app">
+    <canvas class="brasas" id="brasas" aria-hidden="true"></canvas>
+
+    <header class="barra">
+      <a class="marca" href="#" aria-label="Hearthstone DS, início">
+        <span class="selo" aria-hidden="true">DS</span>
+        <span><b>Hearthstone DS</b><small>Monitor pessoal de patch notes</small></span>
+      </a>
+      <div class="busca" role="search">
+        <label class="oculto" for="busca">Buscar carta</label>
+        <input id="busca" type="search" placeholder="Buscar carta pelo nome" autocomplete="off" aria-controls="busca-resultados">
+        <div class="resultados" id="busca-resultados" role="listbox" hidden></div>
+      </div>
+    </header>
+
+    <div class="corpo">
+      <nav class="lista" aria-label="Patches">
+        <p class="rotulo">Patches gravados</p>
+        <ol id="lista-patches"></ol>
+      </nav>
+
+      <main class="detalhe" id="detalhe" aria-live="polite" tabindex="-1">
+        <div class="estado" id="estado-carregando">
+          <span class="giro" aria-hidden="true"></span>
+          <p>Carregando os patches…</p>
+        </div>
+        <div class="estado" id="estado-vazio" hidden>
+          <span class="selo grande" aria-hidden="true">✦</span>
+          <h2>Nenhum patch desde 23/10/2026</h2>
+          <p>O monitor confere a Blizzard e o HearthstoneJSON a cada hora. Quando sair um patch, ele aparece aqui com as cartas alteradas.</p>
+        </div>
+        <div class="estado erro" id="estado-erro" hidden>
+          <h2>Não foi possível carregar os dados</h2>
+          <p>Recarregue a página em alguns minutos. Se continuar, a última execução do monitor pode ter falhado.</p>
+        </div>
+        <div id="conteudo"></div>
+      </main>
+    </div>
+
+    <footer class="rodape">
+      Dados de cartas do <a href="https://hearthstonejson.com/">HearthstoneJSON</a>. Hearthstone é marca da Blizzard Entertainment; este é um projeto pessoal, sem vínculo com a Blizzard.
+    </footer>
+  </div>
+
+  <!-- Modelos clonados por site/js/. Cada [data-campo] recebe texto; [data-texto-carta] recebe a marcação higienizada (só <b> e <i>). -->
+  <template id="tpl-patch">
+    <li><button type="button" class="patch" aria-current="false">
+      <span class="v"><span data-campo="versao"></span><time data-campo="data"></time></span>
+      <span class="conta"><span class="b" data-campo="buffs"></span><span class="n" data-campo="nerfs"></span><span class="a" data-campo="alteradas"></span></span>
+    </button></li>
+  </template>
+
+  <template id="tpl-detalhe">
+    <article class="patch-detalhe">
+      <header>
+        <h2 class="titulo" data-campo="titulo"></h2>
+        <div class="meta"><time data-campo="data"></time><a class="link" data-campo="link" href="#" rel="noopener"><span data-campo="link-texto">Notícia oficial</span> <span aria-hidden="true">→</span></a></div>
+      </header>
+      <div class="totais">
+        <div class="total b"><small>Buffs</small><b data-campo="buffs" data-contar></b></div>
+        <div class="total n"><small>Nerfs</small><b data-campo="nerfs" data-contar></b></div>
+        <div class="total a"><small>Alteradas</small><b data-campo="alteradas" data-contar></b></div>
+      </div>
+      <div class="grupos" data-campo="grupos"></div>
+    </article>
+  </template>
+
+  <template id="tpl-grupo">
+    <section class="grupo">
+      <h3><span class="pilula" data-campo="rotulo"></span><span data-campo="quantidade"></span></h3>
+      <ul class="cartas" data-campo="cartas"></ul>
+      <p class="vazio" data-campo="vazio" hidden>Nenhuma neste patch.</p>
+    </section>
+  </template>
+
+  <template id="tpl-carta">
+    <li class="carta">
+      <span class="mana" data-campo="custo"></span>
+      <div>
+        <div class="nome"><b data-campo="nome"></b><small data-campo="classe"></small></div>
+        <ul class="mudancas" data-campo="mudancas"></ul>
+      </div>
+    </li>
+  </template>
+
+  <template id="tpl-mudanca">
+    <li><span class="campo" data-campo="campo"></span><span class="antes" data-campo="antes"></span><span class="seta" aria-label="passou para">→</span><span class="depois" data-campo="depois"></span></li>
+  </template>
+
+  <template id="tpl-mudanca-texto">
+    <li><span class="campo">texto</span><span class="texto-mudou"><span class="antes" data-texto-carta="antes"></span><span class="depois" data-texto-carta="depois"></span></span></li>
+  </template>
+
+  <template id="tpl-resultado">
+    <button type="button" class="resultado" role="option"><span data-campo="nome"></span><small data-campo="info"></small></button>
+  </template>
+
+  <template id="tpl-ficha">
+    <article class="ficha-carta">
+      <button type="button" class="voltar" data-campo="voltar">← Voltar ao patch</button>
+      <header>
+        <h2 class="titulo" data-campo="nome"></h2>
+        <div class="meta"><span data-campo="classe"></span><span>dados da build atual</span></div>
+      </header>
+      <div class="totais" data-campo="atributos"></div>
+      <p class="texto-carta" data-texto-carta="texto"></p>
+      <section class="grupo">
+        <h3>Mudanças registradas</h3>
+        <ol class="historico" data-campo="historico"></ol>
+        <p class="vazio" data-campo="sem-historico" hidden>Nenhuma mudança desde a linha de base.</p>
+      </section>
+    </article>
+  </template>
+
+  <template id="tpl-atributo">
+    <div class="total"><small data-campo="rotulo"></small><b data-campo="valor" data-contar></b></div>
+  </template>
+
+  <template id="tpl-historico">
+    <li><a class="link" data-campo="patch" href="#"></a>, <time data-campo="data"></time><ul class="mudancas" data-campo="mudancas"></ul></li>
+  </template>
+
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

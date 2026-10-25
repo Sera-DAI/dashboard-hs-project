@@ -1,0 +1,26 @@
+[
+  {
+    "versao": "36.5",
+    "data": "2026-10-21",
+    "cartas": {
+      "buffs": [
+        {"dbfId": 559, "mudancas": [{"campo": "ataque", "antes": 5, "depois": 6}]}
+      ],
+      "nerfs": [],
+      "alteradas": []
+    }
+  },
+  {
+    "versao": "36.6",
+    "data": "2026-10-23",
+    "cartas": {
+      "buffs": [],
+      "nerfs": [
+        {"dbfId": 559, "mudancas": [{"campo": "custo", "antes": 4, "depois": 5}]}
+      ],
+      "alteradas": [
+        {"dbfId": 9001, "mudancas": [{"campo": "texto", "antes": "Antigo", "depois": "Novo"}]}
+      ]
+    }
+  }
+]

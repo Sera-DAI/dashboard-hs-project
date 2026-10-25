@@ -15,5 +15,6 @@ node_modules/
 dist/
 build/
 .wrangler/
+site/dados/
 .DS_Store
 Thumbs.db
