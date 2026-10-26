@@ -238,13 +238,81 @@ export function formatarResultadosNoticias(busca, resultados, total) {
   ].join("\n\n");
 }
 
-export function mensagemMeta() {
-  return "O /meta chega no M4, junto com os decks do meta por classe e rank. Por enquanto, use /patch, /carta, /historico e /noticias.";
-}
-
 export function mensagemAjuda(dashboard, desconhecido = false) {
   const aviso = desconhecido ? "Não conheço esse comando.\n\n" : "";
-  return `${aviso}Hearthstone DS: comandos\n\n/patch: último patch, ou /patch 36.4 para outro\n/carta <nome>: ficha da carta e as mudanças dela\n/historico: últimos 10 patches\n/noticias: últimas notícias, ou /noticias <número ou palavra>\n/meta <classe>: em breve\n/ajuda: esta lista\n\nDashboard: ${dashboard}`;
+  return `${aviso}Hearthstone DS: comandos\n\n/patch: último patch, ou /patch 36.4 para outro\n/carta <nome>: ficha da carta e as mudanças dela\n/historico: últimos 10 patches\n/noticias: últimas notícias, ou /noticias <número ou palavra>\n/decks <classe>: decks Top 500 da Lenda, ou /decks <classe> selvagem\n/meta: links das estatísticas do meta\n/ajuda: esta lista\n\nDashboard: ${dashboard}`;
+}
+
+function dataBrasilia(data) {
+  const dataObjeto = new Date(data);
+
+  if (Number.isNaN(dataObjeto.getTime())) {
+    return String(data ?? "");
+  }
+
+  const dataBrasilia = new Date(dataObjeto.getTime() - 3 * 60 * 60 * 1000);
+
+  return new Intl.DateTimeFormat("pt-BR", {
+    timeZone: "UTC",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric"
+  }).format(dataBrasilia);
+}
+
+export function formatarDecks(classe, formato, itens, links) {
+  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
+  const decks = itens.slice(0, 5).map((item, indice) => {
+    const linhas = [`${indice + 1}. ${item.titulo}`, `📅 ${dataBrasilia(item.data)}`, item.link];
+
+    if (item.codigo) {
+      linhas.push(`Código: ${item.codigo}`);
+    }
+
+    return linhas.join("\n");
+  });
+
+  return [
+    `Hearthstone DS: decks de ${classe} no ${nomeFormato}\nTop 500 da Lenda, mais recentes primeiro`,
+    ...decks,
+    `Fonte: decks enviados ao hearthstone-decks.net\nEstatísticas de ${classe} no HSGuru: ${links.hsguruDecks}`
+  ].join("\n\n");
+}
+
+export function mensagemDecksVazio(classe, formato, links) {
+  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
+  return `Não achei decks recentes de ${classe} no ${nomeFormato}. Veja a página da classe: ${links.pagina}`;
+}
+
+export function mensagemDecksIndisponivel(classe, links) {
+  return `Não consegui ler os decks de ${classe} agora. Veja direto na página: ${links.pagina}`;
+}
+
+export function mensagemUsoDecks(desconhecida = "") {
+  const aviso = desconhecida ? `Não conheço a classe "${desconhecida}".\n` : "";
+  return `${aviso}Use /decks com uma classe, por exemplo /decks mago ou /decks dh selvagem.\nClasses: cavaleiro da morte (dk), caçador de demônios (dh), druida, caçador, mago, paladino, sacerdote, ladino, xamã, bruxo, guerreiro.`;
+}
+
+export function formatarMeta(formato, classe, links, desconhecida = "") {
+  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
+  const aviso = desconhecida ? `Não conheço a classe "${desconhecida}".\n\n` : "";
+  const linhas = [
+    `${aviso}Hearthstone DS: meta do ${nomeFormato}`,
+    "",
+    `Tier list de arquétipos (HSGuru): ${links.hsguruMeta}`,
+    `Meta por classe (HSReplay): ${links.hsreplayMeta}`
+  ];
+
+  if (classe) {
+    linhas.push(
+      "",
+      `${classe} no HSGuru: ${links.hsguruDecks}`,
+      `${classe} no HSReplay: ${links.hsreplayDecks}`
+    );
+  }
+
+  linhas.push("", "Para os decks de uma classe, mande /decks <classe>, por exemplo /decks mago.");
+  return linhas.join("\n");
 }
 
 export function mensagemIndisponivel() {
