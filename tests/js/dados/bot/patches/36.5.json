@@ -1,0 +1,16 @@
+{
+  "versao": "36.5",
+  "data": "2026-10-20",
+  "noticia": null,
+  "noticia_en": {
+    "titulo": "Patch 36.5 balance update",
+    "link": "https://example.test/patch/36.5"
+  },
+  "cartas": {
+    "buffs": [],
+    "nerfs": [
+      {"dbfId": 559, "nome": "Leeroy Jenkins", "mudancas": [{"campo": "ataque", "antes": 7, "depois": 6}]}
+    ],
+    "alteradas": []
+  }
+}

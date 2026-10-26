@@ -1,0 +1,7 @@
+{
+  "noticias": [
+    {"arquivo": "noticias/arena.json", "id": 3, "titulo": "Novidades da Arena Mágica", "data": "2026-10-26"},
+    {"arquivo": "noticias/taverna.json", "id": 2, "titulo": "Cofre da Taverna: novos itens", "data": "2026-10-25"},
+    {"arquivo": "noticias/sem-resumo.json", "id": 1, "titulo": "A Taverna fecha a temporada", "data": "2026-10-24"}
+  ]
+}

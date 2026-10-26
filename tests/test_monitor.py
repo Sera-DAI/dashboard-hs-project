@@ -127,7 +127,7 @@ def test_patch_completo_e_sem_segundo_aviso(ambiente):
     assert "texto" not in patch["noticia"]
     assert len(patch["cartas"]["buffs"]) == 1
     assert len(patch["cartas"]["nerfs"]) == 1
-    assert ler("indice.json")["patches"] == [{"arquivo": "patches/2026-10-23-36.6.json", "versao": "36.6", "data": "2026-10-23", "buffs": 1, "nerfs": 1, "alteradas": 0}]
+    assert ler("indice.json")["patches"] == [{"arquivo": "patches/2026-10-23-36.6.json", "versao": "36.6", "data": "2026-10-23", "buffs": 1, "nerfs": 1, "alteradas": 0, "revisadas": 0}]
     assert ler("estado.json")["pendentes"] == []
     antes = arquivos()
     assert monitor.main() == 0
@@ -519,3 +519,32 @@ def test_noticia_sem_texto_continua_valida():
     bruto = json.dumps({"blogList": [{"id": 1, "title": "Notas do patch 36.6", "summary": "Resumo.", "content": None, "publish": 1792771200000}]}).encode()
     noticia = blizzard.noticias(bruto, "pt-br")[0]
     assert noticia.texto == ""
+
+
+def test_patch_gravado_com_regra_antiga_de_texto_e_regravado(ambiente):
+    assert monitor.main() == 0
+    patch = {
+        "versao": "37.0",
+        "data": "2026-10-12",
+        "build": 1,
+        "noticia": None,
+        "noticia_en": None,
+        "cartas": {"buffs": [], "nerfs": [], "alteradas": [
+            {"dbfId": 1, "nome": "Só pontuação", "classe": "MAGE", "mudancas": [{"campo": "texto", "antes": "<b>Provocar</b>\nCompre", "depois": "<b>Provocar</b>. Compre"}]},
+            {"dbfId": 2, "nome": "Reescrita", "classe": "MAGE", "mudancas": [{"campo": "texto", "antes": "Compre um card.", "depois": "Compre o card."}]},
+        ]},
+        "retroativo": True,
+    }
+    indice = {"patches": [{"arquivo": "patches/2026-10-12-37.0.json", "versao": "37.0", "data": "2026-10-12", "buffs": 0, "nerfs": 0, "alteradas": 2}]}
+    gravacao.gravar({Path("dados/patches/2026-10-12-37.0.json"): patch, Path("dados/indice.json"): indice})
+    assert monitor.main() == 0
+    regravado = ler("patches/2026-10-12-37.0.json")
+    assert regravado["cartas"]["alteradas"] == []
+    assert [carta["nome"] for carta in regravado["cartas"]["revisadas"]] == ["Reescrita"]
+    assert regravado["retroativo"] is True
+    assert ler("indice.json")["patches"][0]["alteradas"] == 0
+    assert ler("indice.json")["patches"][0]["revisadas"] == 1
+    assert ambiente["envios"] == []
+    antes = arquivos()
+    assert monitor.main() == 0
+    assert arquivos() == antes

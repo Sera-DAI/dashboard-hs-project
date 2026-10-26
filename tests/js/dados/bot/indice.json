@@ -1,0 +1,29 @@
+{
+  "patches": [
+    {
+      "arquivo": "patches/36.6.json",
+      "versao": "36.6",
+      "data": "2026-10-26",
+      "buffs": 1,
+      "nerfs": 1,
+      "alteradas": 0,
+      "revisadas": 1
+    },
+    {
+      "arquivo": "patches/36.5.json",
+      "versao": "36.5",
+      "data": "2026-10-20",
+      "buffs": 0,
+      "nerfs": 1,
+      "alteradas": 0
+    },
+    {
+      "arquivo": "patches/36.4.json",
+      "versao": "36.4",
+      "data": "2026-10-10",
+      "buffs": 0,
+      "nerfs": 0,
+      "alteradas": 0
+    }
+  ]
+}

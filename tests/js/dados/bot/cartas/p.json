@@ -1,0 +1,15 @@
+{
+  "build": 255130,
+  "cartas": {
+    "561": {
+      "nome": "Poção Volátil",
+      "classe": "MAGE",
+      "custo": 3,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    }
+  }
+}

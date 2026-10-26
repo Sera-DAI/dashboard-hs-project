@@ -1,0 +1,115 @@
+{
+  "build": 255130,
+  "cartas": {
+    "901": {
+      "nome": "Teste Alfa",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "902": {
+      "nome": "Teste Bravo",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "903": {
+      "nome": "Teste Charlie",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "904": {
+      "nome": "Teste Delta",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "905": {
+      "nome": "Teste Eco",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "906": {
+      "nome": "Teste Foxtrot",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "907": {
+      "nome": "Teste Gama",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "908": {
+      "nome": "Teste Hotel",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "909": {
+      "nome": "Teste Índia",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "910": {
+      "nome": "Teste Julieta",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "911": {
+      "nome": "Teste Kilo",
+      "classe": "NEUTRAL",
+      "custo": 1,
+      "ataque": 1,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    }
+  }
+}

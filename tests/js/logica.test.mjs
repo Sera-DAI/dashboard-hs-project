@@ -71,6 +71,27 @@ test("retorna histórico da carta em ordem do mais novo para o mais antigo", () 
   assert.deepEqual(historicoDaCarta("559", patches).map((patch) => patch.versao), ["36.6", "36.5"]);
 });
 
+test("histórico da carta não mostra o grupo texto revisado", () => {
+  const revisado = [{ versao: "37.0", data: "2026-10-12", cartas: { buffs: [], nerfs: [], alteradas: [], revisadas: [{ dbfId: 7, mudancas: [] }] } }];
+  assert.deepEqual(historicoDaCarta("7", revisado), []);
+});
+
+test("busca mostra uma carta por nome, só do Padrão ou Selvagem, preferindo o Núcleo", () => {
+  const cartas = {
+    559: { nome: "Leeroy Jenkins", colecao: "EXPERT1" },
+    69501: { nome: "Leeroy Jenkins", colecao: "CORE" },
+    69852: { nome: "Leeroy Jenkins", colecao: "VANILLA" },
+    111462: { nome: "Leeroy Jenkins", colecao: "CORE_HIDDEN" },
+    98725: { nome: "Leeroy Torcedor", colecao: "HERO_SKINS" },
+    40: { nome: "Leeroy Aprendiz", colecao: "LEGACY" },
+    41: { nome: "Leeroy Aprendiz", colecao: "EXPERT1" }
+  };
+  assert.deepEqual(buscar(cartas, "leeroy").map((carta) => [carta.nome, carta.dbfId]), [
+    ["Leeroy Aprendiz", "41"],
+    ["Leeroy Jenkins", "69501"]
+  ]);
+});
+
 test("uma resposta HTTP com erro gera falha carregável pela interface", async () => {
   await assert.rejects(
     carregarJson("dados/indice.json", async () => ({ ok: false, status: 503 })),

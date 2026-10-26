@@ -5,7 +5,7 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from hsds import blizzard, diff, formatador, gravacao, hearthstonejson, http, resumo_ia, telegram
+from hsds import blizzard, busca, diff, formatador, gravacao, hearthstonejson, http, resumo_ia, telegram
 
 LISTA = "https://hearthstone.blizzard.com/{idioma}/api/blog/articleList/?page=1&pageSize=12"
 CARTAS = "https://api.hearthstonejson.com/v1/{build}/ptBR/cards.collectible.json"
@@ -281,6 +281,14 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
                     textos.extend(formatador.resumo_atrasado(patch))
             break
 
+    # Patches gravados com uma regra de texto mais antiga (por exemplo, o 37.0 antes de 26/10/2026).
+    for entrada in gravacao.ler(raiz / "indice.json", {"patches": []})["patches"]:
+        patch = alterados.get(entrada["arquivo"]) or patches.get(entrada["arquivo"]) or gravacao.ler(raiz / entrada["arquivo"])
+        cartas_limpas = diff.reaplicar(patch.get("cartas"))
+        if cartas_limpas is not None:
+            patch["cartas"] = cartas_limpas
+            alterados[entrada["arquivo"]] = patch
+
     estado["build"] = build
     vistas = sorted(noticias, key=lambda item: (item.publicada, item.id), reverse=True)
     estado["noticias_vistas"] = list(dict.fromkeys([item.id for item in vistas] + estado["noticias_vistas"]))[:100]
@@ -299,12 +307,15 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
         indice = gravacao.ler(raiz / "indice.json", {"patches": []})
         entradas = [item for item in indice["patches"] if item["arquivo"] not in alterados]
         for arquivo, patch in alterados.items():
-            contagens = {grupo: len((patch["cartas"] or {}).get(grupo, [])) for grupo in ("buffs", "nerfs", "alteradas")}
+            contagens = {grupo: len((patch["cartas"] or {}).get(grupo, [])) for grupo in diff.GRUPOS}
             entradas.insert(0, {"arquivo": arquivo, "versao": patch["versao"], "data": patch["data"], **contagens})
         entradas.sort(key=lambda item: item["data"], reverse=True)
         arquivos[raiz / "indice.json"] = {"patches": entradas}
     if cartas is not None:
         arquivos[raiz / "cartas.json"] = cartas
+        arquivos.update(busca.arquivos(raiz, cartas))
+    else:
+        arquivos.update(busca.desatualizados(raiz, gravacao.ler))
     arquivos[raiz / "estado.json"] = estado
     return arquivos, textos
 
@@ -327,7 +338,7 @@ def main() -> int:
                 "falhas": estado.get("falhas", {}),
                 "resumos_pendentes": [],
             }
-            gravacao.gravar({raiz / "cartas.json": cartas, raiz / "estado.json": linha_base})
+            gravacao.gravar({raiz / "cartas.json": cartas, **busca.arquivos(raiz, cartas), raiz / "estado.json": linha_base})
             return 0
         arquivos, textos = _planejar(raiz, estado, noticias, build, cartas, agora)
         _enviar(textos)

@@ -8,7 +8,7 @@
   --linha: rgba(255, 190, 120, .14);
   --vidro: rgba(40, 24, 14, .72);
   --campo: rgba(0, 0, 0, .35);
-  --popover: rgba(28, 17, 10, .94);
+  --popover: #1c110a;
   --realce: rgba(255, 171, 0, .09);
   --selecao: rgba(255, 171, 0, .12);
   --lateral: rgba(0, 0, 0, .25);
@@ -73,7 +73,7 @@ a { color: var(--ambar); }
 .brasas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: -1; pointer-events: none; }
 
 /* Barra */
-.barra { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--linha); background: rgba(0, 0, 0, .3); backdrop-filter: blur(14px); }
+.barra { position: relative; z-index: 10; display: flex; flex-wrap: wrap; gap: 14px; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid var(--linha); background: rgba(0, 0, 0, .3); backdrop-filter: blur(14px); }
 .marca { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; }
 .marca b { display: block; font: 600 1.3rem/1.1 var(--titulos); }
 .marca small { display: block; color: var(--suave); font-size: .82rem; }

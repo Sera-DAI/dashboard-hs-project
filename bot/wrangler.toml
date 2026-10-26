@@ -1,0 +1,7 @@
+name = "hearthstone-ds-bot"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+DADOS_URL = "https://hearthstone-ds.pages.dev/dados/"
+DASHBOARD_URL = "https://hearthstone-ds.pages.dev"

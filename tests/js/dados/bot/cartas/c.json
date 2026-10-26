@@ -1,0 +1,15 @@
+{
+  "build": 255130,
+  "cartas": {
+    "900": {
+      "nome": "Carta Sem Mudanças",
+      "classe": "PRIEST",
+      "custo": null,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    }
+  }
+}

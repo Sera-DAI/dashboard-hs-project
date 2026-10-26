@@ -133,3 +133,16 @@ def test_resumo_atrasado_de_noticia_segue_mensagem_9():
 def test_carta_que_excede_uma_parte_nao_e_truncada():
     with pytest.raises(ValueError, match="não é possível dividir uma carta"):
         formatador.mensagens("Título\n• " + "a" * 4096, "36.6")
+
+
+def test_bloco_de_cartas_nao_mostra_texto_revisado():
+    cartas = {
+        "buffs": [{"dbfId": 1, "nome": "Isiset", "mudancas": [{"campo": "custo", "antes": 7, "depois": 6}]}],
+        "nerfs": [],
+        "alteradas": [],
+        "revisadas": [{"dbfId": 2, "nome": "Gnomaferatu", "mudancas": [{"campo": "texto", "antes": "Remova um card.", "depois": "<b>Grito de Guerra:</b> Remova o card."}]}],
+    }
+    assert formatador._bloco(cartas) == "Buffs (1)\n• Isiset: custo 7 → 6"
+    sem_grupo = {"buffs": [], "nerfs": [], "alteradas": []}
+    assert formatador._bloco(sem_grupo) == "Nenhuma carta colecionável mudou."
+    assert formatador._bloco({**sem_grupo, "revisadas": cartas["revisadas"]}) == "Nenhuma carta colecionável mudou."

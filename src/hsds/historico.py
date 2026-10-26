@@ -204,7 +204,7 @@ def main(raiz: Path | None = None, dormir=time.sleep) -> int:
                 arquivo = _nome_patch(noticia)
                 arquivos[raiz / arquivo] = patch
                 indice["patches"] = [item for item in indice["patches"] if item["arquivo"] != arquivo]
-                contagens = {grupo: len((patch["cartas"] or {}).get(grupo, [])) for grupo in ("buffs", "nerfs", "alteradas")}
+                contagens = {grupo: len((patch["cartas"] or {}).get(grupo, [])) for grupo in diff.GRUPOS}
                 indice["patches"].append({"arquivo": arquivo, "versao": patch["versao"], "data": patch["data"], **contagens})
                 gravados_patches += 1
                 estado["fila"].append({"arquivo": arquivo, "id": noticia.id})

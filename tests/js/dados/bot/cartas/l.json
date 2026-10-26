@@ -1,0 +1,37 @@
+{
+  "build": 255130,
+  "cartas": {
+    "559": {
+      "nome": "Leeroy Jenkins",
+      "classe": "NEUTRAL",
+      "custo": 4,
+      "ataque": 6,
+      "vida": 2,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "<b>Investida</b>.\nGrito de Guerra: evoque $2 e #3. & fim",
+      "colecao": "EXPERT1"
+    },
+    "560": {
+      "nome": "Leeroy Aprendiz",
+      "classe": "DEMONHUNTER",
+      "custo": 2,
+      "ataque": 2,
+      "vida": 1,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "69501": {
+      "nome": "Leeroy Jenkins",
+      "classe": "NEUTRAL",
+      "custo": 4,
+      "ataque": 6,
+      "vida": 2,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "<b>Investida</b>.\nGrito de Guerra: evoque $2 e #3. & fim",
+      "colecao": "CORE"
+    }
+  }
+}

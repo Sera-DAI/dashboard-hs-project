@@ -1,0 +1,25 @@
+{
+  "versao": "36.6",
+  "data": "2026-10-26",
+  "noticia": {
+    "titulo": "Notas do patch 36.6",
+    "link": "https://example.test/patch/36.6",
+    "resumo": "Resumo da notícia."
+  },
+  "noticia_en": null,
+  "resumo_ia": {
+    "topicos": ["⚔️ O Leeroy ficou mais barato.", "🛠️ Ajustes gerais."]
+  },
+  "cartas": {
+    "buffs": [
+      {"dbfId": 559, "nome": "Leeroy Jenkins", "mudancas": [{"campo": "custo", "antes": 5, "depois": 4}]}
+    ],
+    "nerfs": [
+      {"dbfId": 700, "nome": "Bola de Fogo", "mudancas": [{"campo": "custo", "antes": 3, "depois": 4}]}
+    ],
+    "alteradas": [],
+    "revisadas": [
+      {"dbfId": 561, "nome": "Poção Volátil", "mudancas": [{"campo": "texto", "antes": "Cause 2 de dano.", "depois": "<b>Cause</b> 2 de dano a um lacaio."}]}
+    ]
+  }
+}

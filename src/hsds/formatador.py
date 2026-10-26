@@ -20,8 +20,9 @@ def _bloco(cartas: dict | None) -> str:
     if cartas is None:
         return "As cartas alteradas chegam em outra mensagem quando os dados forem publicados."
     grupos = []
+    # `revisadas` (só texto) fica gravado nos dados, mas não aparece no aviso (pedido do responsável em 26/10/2026).
     for chave, titulo in (("buffs", "Buffs"), ("nerfs", "Nerfs"), ("alteradas", "Alteradas")):
-        itens = cartas[chave]
+        itens = cartas.get(chave, [])
         if not itens:
             continue
         linhas = [f"{titulo} ({len(itens)})"]

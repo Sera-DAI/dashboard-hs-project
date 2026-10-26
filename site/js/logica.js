@@ -32,6 +32,17 @@ export function normalizar(texto) {
     .toLocaleLowerCase("pt-BR");
 }
 
+// Fora do Padrão e do Selvagem: cópias ocultas, heróis alternativos e o Formato Clássico.
+const FORA_DA_BUSCA = new Set(["CORE_HIDDEN", "HERO_SKINS", "VANILLA"]);
+
+function preferida(a, b) {
+  if ((a.colecao === "CORE") !== (b.colecao === "CORE")) {
+    return a.colecao === "CORE" ? a : b;
+  }
+
+  return Number(a.dbfId) >= Number(b.dbfId) ? a : b;
+}
+
 export function buscar(cartas, consulta, limite = 8) {
   const termo = normalizar(consulta.trim());
 
@@ -39,9 +50,20 @@ export function buscar(cartas, consulta, limite = 8) {
     return [];
   }
 
-  return Object.entries(cartas ?? {})
-    .map(([dbfId, carta]) => ({ ...carta, dbfId }))
-    .filter((carta) => normalizar(carta.nome).includes(termo))
+  const porNome = new Map();
+
+  for (const [dbfId, carta] of Object.entries(cartas ?? {})) {
+    const nome = normalizar(carta.nome);
+
+    if (FORA_DA_BUSCA.has(carta.colecao) || !nome.includes(termo)) {
+      continue;
+    }
+
+    const atual = porNome.get(nome);
+    porNome.set(nome, atual ? preferida(atual, { ...carta, dbfId }) : { ...carta, dbfId });
+  }
+
+  return [...porNome.values()]
     .sort((a, b) => {
       const aComeca = normalizar(a.nome).startsWith(termo);
       const bComeca = normalizar(b.nome).startsWith(termo);

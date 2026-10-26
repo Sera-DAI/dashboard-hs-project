@@ -1,0 +1,49 @@
+{
+  "build": 255130,
+  "cartas": {
+    "700": {
+      "nome": "Bola de Fogo",
+      "classe": "MAGE",
+      "colecao": "EXPERT1",
+      "custo": 4,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "Cause $6 de dano."
+    },
+    "701": {
+      "nome": "Bola de Fogo",
+      "classe": "MAGE",
+      "colecao": "CORE_HIDDEN",
+      "custo": 5,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "Cause $6 de dano."
+    },
+    "702": {
+      "nome": "Bola de Fogo",
+      "classe": "MAGE",
+      "colecao": "HERO_SKINS",
+      "custo": null,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": null
+    },
+    "703": {
+      "nome": "Bola de Fogo",
+      "classe": "MAGE",
+      "colecao": "CORE",
+      "custo": 4,
+      "ataque": null,
+      "vida": null,
+      "durabilidade": null,
+      "armadura": null,
+      "texto": "Cause $6 de dano"
+    }
+  }
+}
