@@ -32,8 +32,10 @@
       <nav class="lista" aria-label="Patches e notícias">
         <p class="rotulo">Patches gravados</p>
         <ol id="lista-patches"></ol>
+        <button type="button" class="mais" id="mais-patches" aria-controls="lista-patches" hidden>Mostrar mais</button>
         <p class="rotulo rotulo-noticias" id="rotulo-noticias" hidden>Notícias</p>
         <ol id="lista-noticias" hidden></ol>
+        <button type="button" class="mais" id="mais-noticias" aria-controls="lista-noticias" hidden>Mostrar mais</button>
       </nav>
 
       <main class="detalhe" id="detalhe" aria-live="polite" tabindex="-1">
@@ -78,7 +80,8 @@
         <ul class="topicos" data-campo="topicos"></ul>
         <p class="nota-ia">Escrito por IA a partir da <a data-campo="resumo-link" href="#" rel="noopener">notícia oficial</a>; os números das cartas vêm dos dados abaixo.</p>
       </section>
-      <div class="totais">
+      <p class="vazio" data-campo="sem-cartas" hidden>Lista de cartas indisponível para este patch.</p>
+      <div class="totais" data-campo="totais">
         <div class="total b"><small>Buffs</small><b data-campo="buffs" data-contar></b></div>
         <div class="total n"><small>Nerfs</small><b data-campo="nerfs" data-contar></b></div>
         <div class="total a"><small>Alteradas</small><b data-campo="alteradas" data-contar></b></div>

@@ -53,6 +53,7 @@ export function buscar(cartas, consulta, limite = 8) {
 export function higienizarTexto(marcacao) {
   const texto = String(marcacao ?? "")
     .replace(/^\s*\[x\]\s*/i, "")
+    .replace(/&(?=\s|$)/g, "")
     .replace(/([$#])(?=\d)/g, "")
     .replace(/\r?\n/g, " ");
   const tokens = [];
@@ -131,6 +132,10 @@ export function topicosDoResumo(patch) {
     return [];
   }
   return topicos;
+}
+
+export function fatia(lista, mostrados) {
+  return (lista ?? []).slice(0, Math.max(0, mostrados));
 }
 
 export function formatarCampo(campo, valor) {

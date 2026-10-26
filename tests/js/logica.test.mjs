@@ -4,6 +4,7 @@ import { readFile } from "node:fs/promises";
 import {
   buscar,
   carregarJson,
+  fatia,
   higienizarTexto,
   historicoDaCarta,
   lerRota,
@@ -19,6 +20,14 @@ const patches = JSON.parse(await readFile(new URL("./dados/patches.json", import
 
 test("normaliza acentos e maiúsculas", () => {
   assert.equal(normalizar("POÇÃO Volátil"), "pocao volatil");
+});
+
+test("fatia listas por quantidade sem alterar a lista original", () => {
+  const lista = [1, 2, 3, 4];
+  assert.deepEqual(fatia(lista, 2), [1, 2]);
+  assert.deepEqual(fatia(lista, 10), lista);
+  assert.deepEqual(fatia(null, 10), []);
+  assert.deepEqual(lista, [1, 2, 3, 4]);
 });
 
 test("busca sem acento e prioriza nomes que começam pela consulta", () => {
@@ -94,6 +103,15 @@ test("higieniza marcação sem perder negrito, itálico ou texto de tags desconh
     { tipo: "texto", texto: "itálico" },
     { tipo: "tag", nome: "i", fechar: true },
     { tipo: "texto", texto: " <script>x</script> 12 3" }
+  ]);
+});
+
+test("higieniza a marca de quebra de linha do HearthstoneJSON", () => {
+  assert.deepEqual(higienizarTexto("<b>Último Suspiro:</b>& Evoque um 5/5."), [
+    { tipo: "tag", nome: "b", fechar: false },
+    { tipo: "texto", texto: "Último Suspiro:" },
+    { tipo: "tag", nome: "b", fechar: true },
+    { tipo: "texto", texto: " Evoque um 5/5." }
   ]);
 });
 

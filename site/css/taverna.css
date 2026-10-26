@@ -111,6 +111,11 @@ a { color: var(--ambar); }
 
 /* Notícias na lista: site/js/ reaproveita .patch, com título em várias linhas */
 .rotulo-noticias { margin-top: 22px; }
+
+/* "Mostrar mais" no fim das listas (M2c-10): site/js/ abre mais 10 itens por clique */
+.mais { all: unset; box-sizing: border-box; cursor: pointer; min-height: 44px; margin: 8px 4px 0; padding: 10px 14px; border-radius: 18px; color: var(--ambar); font-weight: 800; font-size: .88rem; border: 1px dashed rgba(255, 171, 0, .35); transition: transform .45s var(--mola), background .3s; }
+.mais:hover { transform: translateY(-2px); background: var(--realce); }
+.mais:focus-visible { outline: 2px solid var(--ambar); outline-offset: 2px; }
 .noticia-item { gap: 6px; }
 .titulo-noticia { font: 600 1rem/1.3 var(--titulos); text-wrap: balance; }
 .noticia-item time { font: 600 .78rem var(--corpo); color: var(--suave); }

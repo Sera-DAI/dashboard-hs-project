@@ -2,6 +2,7 @@ import {
   buscar,
   carregarJson,
   formatarCampo,
+  fatia,
   higienizarTexto,
   historicoDaCarta,
   lerRota,
@@ -15,6 +16,8 @@ import { iniciarEfeitos } from "./efeitos.js";
 const porId = (id) => document.getElementById(id);
 const lista = porId("lista-patches");
 const listaNoticias = porId("lista-noticias");
+const maisPatches = porId("mais-patches");
+const maisNoticias = porId("mais-noticias");
 const rotuloNoticias = porId("rotulo-noticias");
 const conteudo = porId("conteudo");
 const campoBusca = porId("busca");
@@ -30,6 +33,26 @@ let cartasCache;
 let rotaAnterior = "";
 let resultadoAtivo = -1;
 let numeroRenderizacao = 0;
+let patchesMostrados = 10;
+let noticiasMostradas = 10;
+
+let ativos = { patch: "", noticia: "" };
+
+// "Mostrar mais" acrescenta só os próximos 10, para a cascata não repetir os que já estão na tela.
+maisPatches.addEventListener("click", () => {
+  const anterior = patchesMostrados;
+  patchesMostrados += 10;
+  indice.slice(anterior, patchesMostrados).forEach((patch, ordem) => lista.append(itemPatch(patch, ordem)));
+  maisPatches.hidden = indice.length <= patchesMostrados;
+  marcarAtivos(ativos.patch, ativos.noticia);
+});
+maisNoticias.addEventListener("click", () => {
+  const anterior = noticiasMostradas;
+  noticiasMostradas += 10;
+  indiceNoticias.slice(anterior, noticiasMostradas).forEach((noticia, ordem) => listaNoticias.append(itemNoticia(noticia, ordem)));
+  maisNoticias.hidden = indiceNoticias.length <= noticiasMostradas;
+  marcarAtivos(ativos.patch, ativos.noticia);
+});
 
 iniciar();
 
@@ -114,35 +137,64 @@ async function fetchJson(url) {
 function renderizarLista() {
   lista.replaceChildren();
 
-  indice.forEach((patch, ordem) => {
-    const item = clonar("tpl-patch");
-    const botao = item.querySelector(".patch");
-    preencher(item, "versao", patch.versao ? `Patch ${patch.versao}` : "Patch");
-    preencherData(item.querySelector('[data-campo="data"]'), patch.data);
-    preencher(item, "buffs", rotuloContagem(patch.buffs, "buff"));
-    preencher(item, "nerfs", rotuloContagem(patch.nerfs, "nerf"));
-    preencher(item, "alteradas", rotuloContagem(patch.alteradas, "alterada"));
-    botao.style.setProperty("--i", ordem);
-    botao.addEventListener("click", () => {
-      window.location.hash = rotaPatch(patch.arquivo);
-    });
-    lista.append(item);
-  });
+  expandirParaRota();
+
+  fatia(indice, patchesMostrados).forEach((patch, ordem) => lista.append(itemPatch(patch, ordem)));
+  maisPatches.hidden = indice.length <= patchesMostrados;
 
   listaNoticias.replaceChildren();
   rotuloNoticias.hidden = indiceNoticias.length === 0;
   listaNoticias.hidden = indiceNoticias.length === 0;
-  indiceNoticias.forEach((noticia, ordem) => {
-    const item = clonar("tpl-noticia-item");
-    const botao = item.querySelector(".patch");
-    preencher(item, "titulo", noticia.titulo);
-    preencherData(item.querySelector('[data-campo="data"]'), noticia.data);
-    botao.style.setProperty("--i", ordem);
-    botao.addEventListener("click", () => {
-      window.location.hash = rotaNoticia(noticia.arquivo);
-    });
-    listaNoticias.append(item);
+  fatia(indiceNoticias, noticiasMostradas).forEach((noticia, ordem) => listaNoticias.append(itemNoticia(noticia, ordem)));
+  maisNoticias.hidden = indiceNoticias.length <= noticiasMostradas;
+}
+
+function itemPatch(patch, ordem) {
+  const item = clonar("tpl-patch");
+  const botao = item.querySelector(".patch");
+  preencher(item, "versao", patch.versao ? `Patch ${patch.versao}` : "Patch");
+  preencherData(item.querySelector('[data-campo="data"]'), patch.data);
+  preencher(item, "buffs", rotuloContagem(patch.buffs, "buff"));
+  preencher(item, "nerfs", rotuloContagem(patch.nerfs, "nerf"));
+  preencher(item, "alteradas", rotuloContagem(patch.alteradas, "alterada"));
+  botao.style.setProperty("--i", ordem);
+  botao.addEventListener("click", () => {
+    window.location.hash = rotaPatch(patch.arquivo);
   });
+  return item;
+}
+
+function itemNoticia(noticia, ordem) {
+  const item = clonar("tpl-noticia-item");
+  const botao = item.querySelector(".patch");
+  preencher(item, "titulo", noticia.titulo);
+  preencherData(item.querySelector('[data-campo="data"]'), noticia.data);
+  botao.style.setProperty("--i", ordem);
+  botao.addEventListener("click", () => {
+    window.location.hash = rotaNoticia(noticia.arquivo);
+  });
+  return item;
+}
+
+// Abre o bastante da lista para o item da rota aparecer; devolve true quando mudou.
+function expandirParaRota() {
+  const rota = lerRota(window.location.hash);
+  let mudou = false;
+  if (rota.tipo === "patch") {
+    const posicao = indice.findIndex((patch) => patch.arquivo === rota.arquivo);
+    if (posicao >= patchesMostrados) {
+      patchesMostrados = Math.ceil((posicao + 1) / 10) * 10;
+      mudou = true;
+    }
+  }
+  if (rota.tipo === "noticia") {
+    const posicao = indiceNoticias.findIndex((noticia) => noticia.arquivo === rota.arquivo);
+    if (posicao >= noticiasMostradas) {
+      noticiasMostradas = Math.ceil((posicao + 1) / 10) * 10;
+      mudou = true;
+    }
+  }
+  return mudou;
 }
 
 async function renderizarRota() {
@@ -151,6 +203,9 @@ async function renderizarRota() {
   }
 
   const renderizacao = ++numeroRenderizacao;
+  if (expandirParaRota()) {
+    renderizarLista();
+  }
   ocultarEstados();
   estadoCarregando.hidden = false;
   conteudo.replaceChildren();
@@ -270,7 +325,7 @@ async function carregarPatch(arquivo) {
 }
 
 function renderizarDetalhe(patch, entrada) {
-  if (!patch.cartas) {
+  if (!patch.cartas && !patch.retroativo) {
     conteudo.textContent = "As cartas deste patch ainda não chegaram.";
     return;
   }
@@ -314,6 +369,14 @@ function renderizarDetalhe(patch, entrada) {
   }
 
   const grupos = detalhe.querySelector('[data-campo="grupos"]');
+  if (!patch.cartas && patch.retroativo) {
+    detalhe.querySelector('[data-campo="totais"]').hidden = true;
+    grupos.hidden = true;
+    detalhe.querySelector('[data-campo="sem-cartas"]').hidden = false;
+    conteudo.append(detalhe);
+    efeitos.revelarTitulos(conteudo);
+    return;
+  }
   const definicoes = [
     ["buffs", "Buffs"],
     ["nerfs", "Nerfs"],
@@ -586,6 +649,7 @@ function marcarPatchAtivo(arquivo) {
 }
 
 function marcarAtivos(arquivoPatch, arquivoNoticia) {
+  ativos = { patch: arquivoPatch, noticia: arquivoNoticia };
   marcarPatchAtivo(arquivoPatch);
   listaNoticias.querySelectorAll(".patch").forEach((botao, ordem) => {
     botao.setAttribute("aria-current", String(indiceNoticias[ordem]?.arquivo === arquivoNoticia));

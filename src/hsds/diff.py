@@ -1,6 +1,17 @@
 """Comparação somente das cartas presentes nas duas builds."""
 
+import re
+
 CAMPOS = ("custo", "ataque", "vida", "durabilidade", "armadura", "texto")
+
+
+def _texto_comparavel(texto):
+    # O HearthstoneJSON marca quebras de linha sugeridas com "&" e "[x]"; isso não muda a carta.
+    if texto is None:
+        return None
+    texto = re.sub(r"^\s*\[x\]", "", texto, flags=re.IGNORECASE)
+    texto = re.sub(r"&(?=\s|$)", "", texto)
+    return " ".join(texto.split())
 
 
 def comparar(antes: dict, depois: dict) -> dict:
@@ -14,6 +25,8 @@ def comparar(antes: dict, depois: dict) -> dict:
             anterior = antiga.get(campo)
             atual = nova.get(campo)
             if anterior == atual:
+                continue
+            if campo == "texto" and _texto_comparavel(anterior) == _texto_comparavel(atual):
                 continue
             mudancas.append({"campo": campo, "antes": anterior, "depois": atual})
             if campo == "texto" or anterior is None or atual is None:

@@ -1,6 +1,8 @@
 """Acesso às fontes, com identificação e erros sem detalhes da conexão."""
 
 import re
+from datetime import timezone
+from email.utils import parsedate_to_datetime
 from http.client import HTTPException
 import urllib.error
 import urllib.request
@@ -21,6 +23,11 @@ def _abrir_padrao(requisicao: urllib.request.Request) -> bytes:
         return resposta.read()
 
 
+def _abrir_cabecalho_padrao(requisicao: urllib.request.Request):
+    with urllib.request.urlopen(requisicao, timeout=20) as resposta:
+        return resposta.headers
+
+
 def baixar(url: str, abrir=_abrir_padrao) -> bytes:
     fonte = "hearthstonejson" if url.startswith("https://api.hearthstonejson.com/") else "blizzard"
     requisicao = urllib.request.Request(url, headers={"User-Agent": AGENTE}, method="GET")
@@ -36,3 +43,25 @@ def build_atual(abrir=_abrir_padrao) -> int:
     if len(builds) != 1:
         raise ErroFonte("hearthstonejson", "formato da resposta mudou")
     return int(builds.pop())
+
+
+def data_modificacao(url: str, abrir=_abrir_cabecalho_padrao) -> str:
+    fonte = "hearthstonejson" if url.startswith("https://api.hearthstonejson.com/") else "blizzard"
+    requisicao = urllib.request.Request(url, headers={"User-Agent": AGENTE}, method="HEAD")
+    try:
+        resposta = abrir(requisicao)
+        if hasattr(resposta, "headers"):
+            valor = resposta.headers.get("Last-Modified")
+        elif hasattr(resposta, "get"):
+            valor = resposta.get("Last-Modified")
+        elif isinstance(resposta, tuple):
+            valor = resposta[0].get("Last-Modified")
+        else:
+            valor = None
+        if not valor:
+            raise ValueError
+        return parsedate_to_datetime(valor).astimezone(timezone.utc).date().isoformat()
+    except (urllib.error.URLError, OSError, HTTPException):
+        raise ErroFonte(fonte, "site fora do ar ou sem resposta") from None
+    except (ValueError, TypeError, OverflowError):
+        raise ErroFonte(fonte, "formato da resposta mudou") from None

@@ -172,3 +172,18 @@ def falha(fonte: str, motivo: str) -> list[str]:
         f"Motivo: {motivo}\n"
         "Nada foi gravado. Se continuar falhando, aviso de novo em 24 horas."
     ]
+
+
+def historico(gravados_patches: int, gravadas_noticias: int, resumos: int, faltam: int, completo: bool, corte: str) -> list[str]:
+    total = gravados_patches + gravadas_noticias
+    linhas = ["Hearthstone DS: histórico antigo", ""]
+    if total:
+        linhas.append(f"{total} itens gravados neste lote ({gravados_patches} patches e {gravadas_noticias} notícias)")
+    if completo:
+        data = date.fromisoformat(corte).strftime("%d/%m/%Y")
+        linhas.append(f"Histórico completo desde {data}.")
+    else:
+        linhas.append(f"{resumos} resumos por IA feitos; faltam {faltam}.")
+    linhas.append("")
+    linhas.append("https://hearthstone-ds.pages.dev")
+    return ["\n".join(linhas)]
