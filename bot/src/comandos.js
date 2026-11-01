@@ -11,15 +11,13 @@ import {
   formatarMeta,
   letra,
   mensagemAjuda,
-  mensagemDecksIndisponivel,
-  mensagemDecksVazio,
   mensagemIndisponivel,
   mensagemUsoDecks,
   normalizar,
   tituloDaResposta,
   versaoAtual
 } from "./formatador.js";
-import { codigoDaPagina, lerClasse, lerFeed, links, nomeClasse, paginaDoDeck } from "./meta.js";
+import { lerClasse, links, nomeClasse } from "./meta.js";
 
 const DASHBOARD_PADRAO = "https://hearthstone-ds.pages.dev";
 
@@ -165,43 +163,16 @@ async function comandoNoticias(argumento, lerJson, dashboard) {
   return formatarResultadosNoticias(argumento, resultados.slice(0, 10), resultados.length);
 }
 
-async function completarCodigo(item, lerPagina) {
-  const pagina = paginaDoDeck(item.link);
-
-  if (item.codigo || !pagina || !lerPagina) {
-    return item;
-  }
-
-  try {
-    return { ...item, codigo: codigoDaPagina(await lerPagina(pagina)) };
-  } catch {
-    return item;
-  }
-}
-
-async function comandoDecks(argumento, lerFeedXml, lerPagina) {
+function comandoDecks(argumento) {
   const resultado = lerClasse(argumento);
 
   if (!resultado.classe) {
     return mensagemUsoDecks(resultado.desconhecida);
   }
 
-  const dados = links(resultado.classe, resultado.formato);
-  let itens;
-
-  try {
-    const xml = await lerFeedXml(dados.feed);
-    itens = lerFeed(xml);
-  } catch {
-    return mensagemDecksIndisponivel(nomeClasse(resultado.classe), dados);
-  }
-
-  if (itens.length === 0) {
-    return mensagemDecksVazio(nomeClasse(resultado.classe), resultado.formato, dados);
-  }
-
-  const completos = await Promise.all(itens.map((item) => completarCodigo(item, lerPagina)));
-  return formatarDecks(nomeClasse(resultado.classe), resultado.formato, completos, dados);
+  const formatos = resultado.formato ? [resultado.formato] : ["padrao", "wild"];
+  const dados = Object.fromEntries(formatos.map((formato) => [formato, links(resultado.classe, formato)]));
+  return formatarDecks(nomeClasse(resultado.classe), dados, Boolean(resultado.formato));
 }
 
 export async function responder(texto, lerJson, config = {}) {
@@ -219,12 +190,13 @@ export async function responder(texto, lerJson, config = {}) {
     } else if (comando === "noticias") {
       resposta = await comandoNoticias(argumento, lerJson, dashboard);
     } else if (comando === "decks") {
-      resposta = await comandoDecks(argumento, config.lerFeed, config.lerPagina);
+      resposta = comandoDecks(argumento);
     } else if (comando === "meta") {
       const resultado = lerClasse(argumento);
-      const dados = links(resultado.classe ?? "MAGE", resultado.formato);
+      const formato = resultado.formato ?? "padrao";
+      const dados = links(resultado.classe ?? "MAGE", formato);
       resposta = formatarMeta(
-        resultado.formato,
+        formato,
         resultado.classe ? nomeClasse(resultado.classe) : "",
         dados,
         resultado.desconhecida

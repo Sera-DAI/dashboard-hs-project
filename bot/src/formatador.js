@@ -104,7 +104,7 @@ export function formatarPatch(patch, arquivo, dashboard) {
   return partes.filter((parte) => parte !== "").join("\n\n");
 }
 
-// Fora do Padrão e do Selvagem: cópias ocultas, heróis alternativos e o Formato Clássico.
+// Fora do Padrão e do Wild: cópias ocultas, heróis alternativos e o Formato Clássico.
 const FORA_DA_BUSCA = new Set(["CORE_HIDDEN", "HERO_SKINS", "VANILLA"]);
 
 export function letra(busca) {
@@ -240,7 +240,7 @@ export function formatarResultadosNoticias(busca, resultados, total) {
 
 export function mensagemAjuda(dashboard, desconhecido = false) {
   const aviso = desconhecido ? "Não conheço esse comando.\n\n" : "";
-  return `${aviso}Hearthstone DS: comandos\n\n/patch: último patch, ou /patch 36.4 para outro\n/carta <nome>: ficha da carta e as mudanças dela\n/historico: últimos 10 patches\n/noticias: últimas notícias, ou /noticias <número ou palavra>\n/decks <classe>: decks Top 500 da Lenda, ou /decks <classe> selvagem\n/meta: links das estatísticas do meta\n/ajuda: esta lista\n\nDashboard: ${dashboard}`;
+  return `${aviso}Hearthstone DS: comandos\n\n/patch: último patch, ou /patch 36.4 para outro\n/carta <nome>: ficha da carta e as mudanças dela\n/historico: últimos 10 patches\n/noticias: últimas notícias, ou /noticias <número ou palavra>\n/decks <classe>: links de decks no HSReplay e no HSGuru, Padrão e Wild, ou /decks <classe> wild\n/meta: links das estatísticas do meta\n/ajuda: esta lista\n\nDashboard: ${dashboard}`;
 }
 
 function dataBrasilia(data) {
@@ -260,41 +260,35 @@ function dataBrasilia(data) {
   }).format(dataBrasilia);
 }
 
-export function formatarDecks(classe, formato, itens, links) {
-  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
-  const decks = itens.slice(0, 5).map((item, indice) => {
-    const linhas = [`${indice + 1}. ${item.titulo}`, `📅 ${dataBrasilia(item.data)}`, item.link];
+const FILTROS_HSGURU = "Filtros do HSGuru: Diamante até Lenda, últimas 2 semanas, mínimo de 100 jogos.";
 
-    if (item.codigo) {
-      linhas.push(`Código: ${item.codigo}`);
-    }
-
-    return linhas.join("\n");
-  });
-
-  return [
-    `Hearthstone DS: decks de ${classe} no ${nomeFormato}\nTop 500 da Lenda, mais recentes primeiro`,
-    ...decks,
-    `Fonte: decks enviados ao hearthstone-decks.net\nEstatísticas de ${classe} no HSGuru: ${links.hsguruDecks}`
-  ].join("\n\n");
+function nomeDoFormato(formato) {
+  return formato === "wild" ? "Wild" : "Padrão";
 }
 
-export function mensagemDecksVazio(classe, formato, links) {
-  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
-  return `Não achei decks recentes de ${classe} no ${nomeFormato}. Veja a página da classe: ${links.pagina}`;
-}
+// formatos: { padrao: links, wild: links } com o que deve aparecer; um só quando o responsável pede o formato
+export function formatarDecks(classe, formatos, comFormato = false) {
+  const entradas = Object.entries(formatos);
+  const titulo = comFormato
+    ? `Hearthstone DS: decks de ${classe} no ${nomeDoFormato(entradas[0][0])}`
+    : `Hearthstone DS: decks de ${classe}`;
+  const blocos = entradas.map(([formato, dados]) => [
+    ...(comFormato ? [] : [nomeDoFormato(formato)]),
+    `HSReplay: ${dados.hsreplayDecks}`,
+    `HSGuru: ${dados.hsguruDecks}`
+  ].join("\n"));
+  const dica = comFormato ? "" : `\n\nSó um formato: /decks ${classe.toLocaleLowerCase("pt-BR")} wild ou /decks ${classe.toLocaleLowerCase("pt-BR")} padrão.`;
 
-export function mensagemDecksIndisponivel(classe, links) {
-  return `Não consegui ler os decks de ${classe} agora. Veja direto na página: ${links.pagina}`;
+  return [titulo, ...blocos, FILTROS_HSGURU].join("\n\n") + dica;
 }
 
 export function mensagemUsoDecks(desconhecida = "") {
   const aviso = desconhecida ? `Não conheço a classe "${desconhecida}".\n` : "";
-  return `${aviso}Use /decks com uma classe, por exemplo /decks mago ou /decks dh selvagem.\nClasses: cavaleiro da morte (dk), caçador de demônios (dh), druida, caçador, mago, paladino, sacerdote, ladino, xamã, bruxo, guerreiro.`;
+  return `${aviso}Use /decks com uma classe, por exemplo /decks mago ou /decks dh wild.\nClasses: cavaleiro da morte (dk), caçador de demônios (dh), druida, caçador, mago, paladino, sacerdote, ladino, xamã, bruxo, guerreiro.`;
 }
 
 export function formatarMeta(formato, classe, links, desconhecida = "") {
-  const nomeFormato = formato === "selvagem" ? "Selvagem" : "Padrão";
+  const nomeFormato = nomeDoFormato(formato);
   const aviso = desconhecida ? `Não conheço a classe "${desconhecida}".\n\n` : "";
   const linhas = [
     `${aviso}Hearthstone DS: meta do ${nomeFormato}`,

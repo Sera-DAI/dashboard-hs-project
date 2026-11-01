@@ -3,23 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Página não encontrada · Hearthstone DS</title>
+  <title>Página não encontrada · Dash'board HS</title>
   <meta name="color-scheme" content="dark">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap">
-  <link rel="stylesheet" href="/css/taverna.css">
+  <link rel="icon" type="image/png" href="/img/favicon-32.png">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,500&family=JetBrains+Mono:wght@400;500&display=swap">
+  <link rel="stylesheet" href="/css/darc.css">
+  <style>
+    .perdida { min-height: 100vh; display: grid; place-content: center; justify-items: center; gap: 18px; padding: 32px 24px; text-align: center; }
+    .perdida img { width: 88px; height: 88px; border-radius: 22px; box-shadow: 0 0 0 1px rgba(233,185,73,.4), 0 0 32px rgba(124,58,237,.6); }
+    .perdida h1 { font-size: clamp(2.2rem, 7vw, 3.6rem); }
+    .perdida p { margin: 0; color: var(--suave); }
+  </style>
 </head>
-<body>
+<body class="s-noite">
   <!-- Existe para o Cloudflare Pages responder 404 de verdade: sem este arquivo, ele devolve o index.html em qualquer caminho e o dashboard lê HTML no lugar do JSON que ainda não existe. -->
-  <div class="app">
-    <main class="detalhe">
-      <div class="estado">
-        <span class="selo grande" aria-hidden="true">✦</span>
-        <h2>Página não encontrada</h2>
-        <p><a class="link" href="/">Voltar ao Hearthstone DS <span aria-hidden="true">→</span></a></p>
-      </div>
-    </main>
-  </div>
+  <main class="perdida">
+    <img src="/img/icone-d.webp" alt="" width="88" height="88">
+    <h1>Esse fio <em>se perdeu.</em></h1>
+    <p>A página que você procurou não existe.</p>
+    <a class="botao real" href="/">Voltar ao início</a>
+  </main>
 </body>
 </html>

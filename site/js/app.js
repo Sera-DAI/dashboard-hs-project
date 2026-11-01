@@ -1,712 +1,521 @@
-import {
-  buscar,
-  carregarJson,
-  formatarCampo,
-  fatia,
-  higienizarTexto,
-  historicoDaCarta,
-  lerRota,
-  nomeClasse,
-  rotaNoticia,
-  rotaPatch,
-  topicosDoResumo
-} from "./logica.js";
+import { $, $$, elemento, botao, icone, link, dataBR, dataElemento, marcar, CLASSES } from "./elementos.js";
+import { nomeClasse, GRUPOS, buscar, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "./logica.js";
+import { carregarDados } from "./dados.js";
+import { definirImagens, desenharCarta, iniciarCarta, atualizarCarta, linhasMudanca } from "./cartas.js";
 import { iniciarEfeitos } from "./efeitos.js";
+import { montarBrasoes } from "./meta.js";
 
-const porId = (id) => document.getElementById(id);
-const lista = porId("lista-patches");
-const listaNoticias = porId("lista-noticias");
-const maisPatches = porId("mais-patches");
-const maisNoticias = porId("mais-noticias");
-const rotuloNoticias = porId("rotulo-noticias");
-const conteudo = porId("conteudo");
-const campoBusca = porId("busca");
-const resultadosBusca = porId("busca-resultados");
-const estadoCarregando = porId("estado-carregando");
-const estadoVazio = porId("estado-vazio");
-const estadoErro = porId("estado-erro");
 const efeitos = iniciarEfeitos();
+const janelaCarta = $("#janela-carta");
+let dados;
+let rotaAtual = "";
+let grupoAtivo = "todas";
+let cartaAberta;
+let versaoCarta = "depois";
 
-let indice;
-let indiceNoticias = [];
-let cartasCache;
-let rotaAnterior = "";
-let resultadoAtivo = -1;
-let numeroRenderizacao = 0;
-let patchesMostrados = 10;
-let noticiasMostradas = 10;
-
-let ativos = { patch: "", noticia: "" };
-
-// "Mostrar mais" acrescenta só os próximos 10, para a cascata não repetir os que já estão na tela.
-maisPatches.addEventListener("click", () => {
-  const anterior = patchesMostrados;
-  patchesMostrados += 10;
-  indice.slice(anterior, patchesMostrados).forEach((patch, ordem) => lista.append(itemPatch(patch, ordem)));
-  maisPatches.hidden = indice.length <= patchesMostrados;
-  marcarAtivos(ativos.patch, ativos.noticia);
-});
-maisNoticias.addEventListener("click", () => {
-  const anterior = noticiasMostradas;
-  noticiasMostradas += 10;
-  indiceNoticias.slice(anterior, noticiasMostradas).forEach((noticia, ordem) => listaNoticias.append(itemNoticia(noticia, ordem)));
-  maisNoticias.hidden = indiceNoticias.length <= noticiasMostradas;
-  marcarAtivos(ativos.patch, ativos.noticia);
-});
-
+configurarDialogos();
+iniciarCarta($("#carta-grande"), efeitos);
+window.addEventListener("hashchange", navegar);
+navegar();
 iniciar();
 
 async function iniciar() {
+  document.body.dataset.estado = "carregando";
   try {
-    let resposta;
-    try {
-      resposta = await fetchJson("dados/indice.json");
-    } catch (erro) {
-      if (erro.status !== 404) {
-        throw erro;
-      }
-      resposta = { patches: [] };
-    }
-    if (!Array.isArray(resposta.patches)) {
-      throw new Error("Índice inválido");
-    }
-
-    let respostaNoticias;
-    try {
-      respostaNoticias = await fetchJson("dados/noticias.json");
-    } catch (erro) {
-      if (erro.status !== 404) {
-        throw erro;
-      }
-      respostaNoticias = { noticias: [] };
-    }
-    if (!Array.isArray(respostaNoticias.noticias)) {
-      throw new Error("Índice de notícias inválido");
-    }
-
-    indice = resposta.patches.map(validarEntrada).sort((a, b) =>
-      String(b.data).localeCompare(String(a.data))
-    );
-    indiceNoticias = respostaNoticias.noticias.map(validarEntradaNoticia).sort((a, b) =>
-      String(b.data).localeCompare(String(a.data))
-    );
-    renderizarLista();
-    ocultarEstados();
-    window.addEventListener("hashchange", renderizarRota);
+    dados = await carregarDados();
+    definirImagens(dados.imagens);
+    montarInicio();
+    montarIndice();
+    montarCartas();
+    montarNoticias();
+    montarBrasoes(efeitos);
     configurarBusca();
-    await renderizarRota();
-  } catch {
-    mostrarErro();
+    document.body.dataset.estado = "pronto";
+    navegar();
+  } catch (erro) {
+    document.body.dataset.estado = "erro";
+    console.error("Falha ao carregar o dashboard", erro);
   }
 }
 
-function validarEntradaNoticia(entrada) {
-  if (!entrada || typeof entrada.arquivo !== "string" || typeof entrada.data !== "string" || typeof entrada.titulo !== "string") {
-    throw new Error("Entrada de notícia inválida");
+function montarInicio() {
+  const ultimo = dados.patches.find((patch) => patch.cartas.length) ?? dados.patches[0];
+  if (dados.patches.length) {
+    $("#sobre-hero").textContent = "Patch " + dados.patches[0].versao + " · " + dados.noticias.length + " notícias · Meta";
   }
-  return { arquivo: entrada.arquivo, data: entrada.data, titulo: entrada.titulo };
-}
-
-function validarEntrada(entrada) {
-  if (!entrada || typeof entrada.arquivo !== "string" || typeof entrada.data !== "string") {
-    throw new Error("Entrada de índice inválida");
+  const faixa = [
+    ...(ultimo ? ["Patch " + ultimo.versao, ultimo.buffs + " buffs", ultimo.nerfs + " nerfs"] : []),
+    dados.noticias.length + " notícias", "Decks do meta", "Padrão e Wild",
+    "Cartas em 3D", "Resumo por IA", "Aviso no Telegram", "A cada 60 minutos"
+  ];
+  for (const [id, itens] of [["faixa1", faixa], ["faixa2", Object.keys(CLASSES).map(nomeClasse)]]) {
+    const alvo = $("#" + id);
+    alvo.replaceChildren();
+    for (const texto of [...itens, ...itens]) {
+      const no = elemento("span", "", texto);
+      no.append(icone("estrela"));
+      alvo.append(no);
+    }
   }
-
-  return {
-    arquivo: entrada.arquivo,
-    versao: String(entrada.versao ?? ""),
-    data: entrada.data,
-    buffs: contar(entrada.buffs),
-    nerfs: contar(entrada.nerfs),
-    alteradas: contar(entrada.alteradas)
+  const nCartas = new Set(dados.patches.flatMap((patch) => patch.cartas.map((carta) => carta.nome))).size;
+  const portas = [
+    ["patches", "i.", "Patches", dados.patches.length ? dados.patches.length + " versões, do " + dados.patches.at(-1).versao + " ao " + dados.patches[0].versao + ", com resumo em tópicos." : "", "Abrir o livro"],
+    ["cartas", "ii.", "Cartas", nCartas + " cartas alteradas, em 3D, com antes e depois.", "Ver as cartas"],
+    ["noticias", "iii.", "Notícias", dados.noticias.length + " notícias: expansões, eventos, loja e esports.", "Ler as notícias"],
+    ["meta", "iv.", "Meta", "", "Ver os decks"]
+  ];
+  $("#portas").replaceChildren(...portas.map(([rota, numero, titulo, descricao, acao]) => {
+    const item = elemento("li");
+    const ancora = link("", "#/" + rota, "porta revela");
+    const pequena = elemento("small", "", acao);
+    pequena.append(icone("seta-d"));
+    ancora.append(elemento("i", "", numero), elemento("b", "", titulo), elemento("p", "", descricao), pequena);
+    item.append(ancora);
+    return item;
+  }));
+  dados.falas = {
+    inicio: [
+      ...(ultimo ? [ultimo.buffs + " buffs e " + ultimo.nerfs + " nerfs no Patch " + ultimo.versao + "."] : []),
+      ...(dados.noticias.length ? ["Nova notícia na Taverna!"] : []),
+      ...(dados.patches.length ? ["Novo patch na Taverna: " + dados.patches[0].versao + "."] : []),
+      "Padrão ou Wild? Escolha um brasão.", "Volto a vigiar em 60 minutos."
+    ],
+    patches: [
+      ...(ultimo ? [ultimo.buffs + " buffs e " + ultimo.nerfs + " nerfs no Patch " + ultimo.versao + "."] : []),
+      dados.patches.length + " patches no livro.", "Escolha uma versão ao lado."
+    ],
+    cartas: [nCartas + " cartas mudaram desde abril.", "Toque numa carta para ver em 3D.", "Buffs em verde, nerfs em vermelho."],
+    noticias: [...(dados.noticias.length ? ["Nova notícia na Taverna!"] : []), dados.noticias.length + " notícias guardadas.", "Resumo nosso, link para a original."],
+    meta: ["Escolha um brasão.", "Padrão ou Wild?"]
   };
 }
 
-function contar(valor) {
-  const numero = Number(valor ?? 0);
-  if (!Number.isInteger(numero) || numero < 0) {
-    throw new Error("Contagem inválida");
-  }
-  return numero;
-}
-
-async function fetchJson(url) {
-  return carregarJson(url);
-}
-
-function renderizarLista() {
-  lista.replaceChildren();
-
-  expandirParaRota();
-
-  fatia(indice, patchesMostrados).forEach((patch, ordem) => lista.append(itemPatch(patch, ordem)));
-  maisPatches.hidden = indice.length <= patchesMostrados;
-
-  listaNoticias.replaceChildren();
-  rotuloNoticias.hidden = indiceNoticias.length === 0;
-  listaNoticias.hidden = indiceNoticias.length === 0;
-  fatia(indiceNoticias, noticiasMostradas).forEach((noticia, ordem) => listaNoticias.append(itemNoticia(noticia, ordem)));
-  maisNoticias.hidden = indiceNoticias.length <= noticiasMostradas;
-}
-
-function itemPatch(patch, ordem) {
-  const item = clonar("tpl-patch");
-  const botao = item.querySelector(".patch");
-  preencher(item, "versao", patch.versao ? `Patch ${patch.versao}` : "Patch");
-  preencherData(item.querySelector('[data-campo="data"]'), patch.data);
-  preencher(item, "buffs", rotuloContagem(patch.buffs, "buff"));
-  preencher(item, "nerfs", rotuloContagem(patch.nerfs, "nerf"));
-  preencher(item, "alteradas", rotuloContagem(patch.alteradas, "alterada"));
-  botao.style.setProperty("--i", ordem);
-  botao.addEventListener("click", () => {
-    window.location.hash = rotaPatch(patch.arquivo);
-  });
-  return item;
-}
-
-function itemNoticia(noticia, ordem) {
-  const item = clonar("tpl-noticia-item");
-  const botao = item.querySelector(".patch");
-  preencher(item, "titulo", noticia.titulo);
-  preencherData(item.querySelector('[data-campo="data"]'), noticia.data);
-  botao.style.setProperty("--i", ordem);
-  botao.addEventListener("click", () => {
-    window.location.hash = rotaNoticia(noticia.arquivo);
-  });
-  return item;
-}
-
-// Abre o bastante da lista para o item da rota aparecer; devolve true quando mudou.
-function expandirParaRota() {
-  const rota = lerRota(window.location.hash);
-  let mudou = false;
-  if (rota.tipo === "patch") {
-    const posicao = indice.findIndex((patch) => patch.arquivo === rota.arquivo);
-    if (posicao >= patchesMostrados) {
-      patchesMostrados = Math.ceil((posicao + 1) / 10) * 10;
-      mudou = true;
-    }
-  }
-  if (rota.tipo === "noticia") {
-    const posicao = indiceNoticias.findIndex((noticia) => noticia.arquivo === rota.arquivo);
-    if (posicao >= noticiasMostradas) {
-      noticiasMostradas = Math.ceil((posicao + 1) / 10) * 10;
-      mudou = true;
-    }
-  }
-  return mudou;
-}
-
-async function renderizarRota() {
-  if (!indice) {
-    return;
-  }
-
-  const renderizacao = ++numeroRenderizacao;
-  if (expandirParaRota()) {
-    renderizarLista();
-  }
-  ocultarEstados();
-  estadoCarregando.hidden = false;
-  conteudo.replaceChildren();
-  const rota = lerRota(window.location.hash);
-
-  try {
-    if (rota.tipo === "carta") {
-      await renderizarCarta(rota.dbfId, renderizacao);
-    } else if (rota.tipo === "noticia") {
-      const entrada = indiceNoticias.find((noticia) => noticia.arquivo === rota.arquivo);
-      if (!entrada) {
-        throw new Error("Notícia não encontrada");
+function montarIndice() {
+  $("#indice-patches").replaceChildren(...dados.patches.map((patch) => {
+    const item = elemento("li");
+    const ancora = link("", rotaVersao(patch.versao));
+    ancora.dataset.versao = patch.versao;
+    const conta = elemento("span", "conta");
+    conta.setAttribute("aria-label", patch.buffs + " buffs, " + patch.nerfs + " nerfs");
+    if (patch.cartas.length) {
+      for (const [grupo, classe, simbolo] of [["buffs", "cb", "buff"], ["nerfs", "cn", "nerf"]]) {
+        const numero = elemento("span", classe + (patch[grupo] ? "" : " zero"));
+        numero.append(icone(simbolo), String(patch[grupo]));
+        conta.append(numero);
       }
-      const noticia = await carregarNoticia(entrada.arquivo);
-      if (renderizacao !== numeroRenderizacao) {
-        return;
-      }
-      renderizarDetalheNoticia(noticia, entrada);
-      rotaAnterior = window.location.hash || rotaNoticia(entrada.arquivo);
-      marcarAtivos("", entrada.arquivo);
     } else {
-      const arquivo = rota.tipo === "patch" ? rota.arquivo : indice[0]?.arquivo;
-      const entrada = indice.find((patch) => patch.arquivo === arquivo);
-      if (!entrada) {
-        if (rota.tipo === "inicio" && !indice.length && indiceNoticias.length) {
-          const noticia = indiceNoticias[0];
-          const dados = await carregarNoticia(noticia.arquivo);
-          if (renderizacao !== numeroRenderizacao) {
-            return;
-          }
-          renderizarDetalheNoticia(dados, noticia);
-          rotaAnterior = rotaNoticia(noticia.arquivo);
-          marcarAtivos("", noticia.arquivo);
-          return;
-        }
-        if (!indice.length && !indiceNoticias.length && rota.tipo === "inicio") {
-          mostrarVazio();
-          return;
-        }
-        throw new Error("Patch não encontrado");
-      }
-      const patch = await carregarPatch(entrada.arquivo);
-      if (renderizacao !== numeroRenderizacao) {
-        return;
-      }
-      renderizarDetalhe(patch, entrada);
-      rotaAnterior = window.location.hash || rotaPatch(entrada.arquivo);
-      marcarAtivos(entrada.arquivo, "");
+      conta.append(elemento("span", "zero", "sem cartas"));
     }
-  } catch {
-    if (renderizacao === numeroRenderizacao) {
-      mostrarErro();
-    }
-  } finally {
-    if (renderizacao === numeroRenderizacao) {
-      estadoCarregando.hidden = true;
-    }
-  }
-}
-
-async function carregarNoticia(arquivo) {
-  if (!/^noticias\/[\w.-]+\.json$/.test(arquivo)) {
-    throw new Error("Caminho de notícia inválido");
-  }
-  const noticia = await fetchJson(`dados/${arquivo}`);
-  if (!noticia || typeof noticia !== "object") {
-    throw new Error("Notícia inválida");
-  }
-  return noticia;
-}
-
-function renderizarDetalheNoticia(noticia, entrada) {
-  const detalhe = clonar("tpl-noticia");
-  preencher(detalhe, "titulo", noticia.titulo ?? entrada.titulo);
-  preencherData(detalhe.querySelector('[data-campo="data"]'), noticia.publicada?.slice(0, 10) ?? entrada.data);
-  const link = detalhe.querySelector('[data-campo="link"]');
-  if (noticia.link) {
-    link.href = noticia.link;
-  } else {
-    link.hidden = true;
-  }
-  const topicos = topicosDoResumo(noticia);
-  const resumo = detalhe.querySelector('[data-campo="resumo-ia"]');
-  if (topicos.length) {
-    resumo.hidden = false;
-    topicos.forEach((topico, ordem) => {
-      const item = clonar("tpl-topico");
-      const elemento = item.querySelector('[data-campo="texto"]');
-      elemento.textContent = topico;
-      elemento.style.setProperty("--i", ordem);
-      resumo.querySelector('[data-campo="topicos"]').append(item);
-    });
-    const linkResumo = resumo.querySelector('[data-campo="resumo-link"]');
-    if (noticia.link) {
-      linkResumo.href = noticia.link;
-    } else {
-      linkResumo.hidden = true;
-    }
-  } else {
-    resumo.hidden = true;
-    detalhe.querySelector('[data-campo="sem-resumo"]').hidden = false;
-  }
-  conteudo.append(detalhe);
-  efeitos.revelarTitulos(conteudo);
-}
-
-async function carregarPatch(arquivo) {
-  if (!/^patches\/[\w.-]+\.json$/.test(arquivo)) {
-    throw new Error("Caminho de patch inválido");
-  }
-
-  const patch = await fetchJson(`dados/${arquivo}`);
-  if (!patch || typeof patch !== "object") {
-    throw new Error("Patch inválido");
-  }
-  return patch;
-}
-
-function renderizarDetalhe(patch, entrada) {
-  if (!patch.cartas && !patch.retroativo) {
-    conteudo.textContent = "As cartas deste patch ainda não chegaram.";
-    return;
-  }
-
-  const detalhe = clonar("tpl-detalhe");
-  const noticia = patch.noticia ?? patch.noticia_en;
-  preencher(detalhe, "titulo", noticia?.titulo ?? `Patch ${patch.versao ?? entrada.versao}`);
-  preencherData(detalhe.querySelector('[data-campo="data"]'), patch.data ?? entrada.data);
-  preencher(detalhe, "buffs", entrada.buffs);
-  preencher(detalhe, "nerfs", entrada.nerfs);
-  preencher(detalhe, "alteradas", entrada.alteradas);
-
-  const link = detalhe.querySelector('[data-campo="link"]');
-  if (noticia?.link) {
-    link.href = noticia.link;
-    if (!patch.noticia && patch.noticia_en) {
-      preencher(detalhe, "link-texto", "Notícia oficial (inglês)");
-    }
-  } else {
-    link.hidden = true;
-  }
-
-  const resumo = detalhe.querySelector('[data-campo="resumo-ia"]');
-  const topicos = topicosDoResumo(patch);
-  if (topicos.length) {
-    resumo.hidden = false;
-    const listaTopicos = resumo.querySelector('[data-campo="topicos"]');
-    topicos.forEach((topico, ordem) => {
-      const item = clonar("tpl-topico");
-      const elemento = item.querySelector('[data-campo="texto"]');
-      elemento.textContent = topico;
-      elemento.style.setProperty("--i", ordem);
-      listaTopicos.append(item);
-    });
-    const linkResumo = resumo.querySelector('[data-campo="resumo-link"]');
-    if (noticia?.link) {
-      linkResumo.href = noticia.link;
-    } else {
-      linkResumo.hidden = true;
-    }
-  }
-
-  const grupos = detalhe.querySelector('[data-campo="grupos"]');
-  if (!patch.cartas && patch.retroativo) {
-    detalhe.querySelector('[data-campo="totais"]').hidden = true;
-    grupos.hidden = true;
-    detalhe.querySelector('[data-campo="sem-cartas"]').hidden = false;
-    conteudo.append(detalhe);
-    efeitos.revelarTitulos(conteudo);
-    return;
-  }
-  const definicoes = [
-    ["buffs", "Buffs"],
-    ["nerfs", "Nerfs"],
-    ["alteradas", "Alteradas"]
-  ];
-
-  definicoes.forEach(([chave, rotulo]) => {
-    const cartas = Array.isArray(patch.cartas[chave]) ? patch.cartas[chave] : [];
-    const grupo = clonar("tpl-grupo");
-    const secao = grupo.querySelector(".grupo");
-    secao.classList.add(chave);
-    preencher(grupo, "rotulo", rotulo);
-    preencher(grupo, "quantidade", `${cartas.length} ${cartas.length === 1 ? "carta" : "cartas"}`);
-
-    if (!cartas.length) {
-      grupo.querySelector('[data-campo="cartas"]').hidden = true;
-      grupo.querySelector('[data-campo="vazio"]').hidden = false;
-    } else {
-      const listaCartas = grupo.querySelector('[data-campo="cartas"]');
-      cartas.forEach((carta, ordem) => listaCartas.append(renderizarCartaAlterada(carta, ordem)));
-    }
-
-    grupos.append(grupo);
-  });
-
-  conteudo.append(detalhe);
-  efeitos.revelarTitulos(conteudo);
-  efeitos.contar(conteudo);
-}
-
-function renderizarCartaAlterada(carta, ordem) {
-  const item = clonar("tpl-carta");
-  const elemento = item.querySelector(".carta");
-  const custo = carta.custo ?? (carta.mudancas ?? []).find((mudanca) => mudanca.campo === "custo")?.depois;
-  if (custo === null || custo === undefined) {
-    item.querySelector(".mana").hidden = true;
-  } else {
-    preencher(item, "custo", custo);
-  }
-  preencher(item, "nome", carta.nome ?? "Carta sem nome");
-  preencher(item, "classe", nomeClasse(carta.classe));
-  elemento.style.setProperty("--i", ordem);
-
-  const mudancas = item.querySelector('[data-campo="mudancas"]');
-  (carta.mudancas ?? []).forEach((mudanca, indice) => {
-    mudancas.append(renderizarMudanca(mudanca, indice));
-  });
-
-  return item;
-}
-
-function renderizarMudanca(mudanca, indice) {
-  if (mudanca.campo === "texto") {
-    const item = clonar("tpl-mudanca-texto");
-    inserirTextoSeguro(item.querySelector('[data-texto-carta="antes"]'), mudanca.antes);
-    inserirTextoSeguro(item.querySelector('[data-texto-carta="depois"]'), mudanca.depois);
-    item.querySelector(".depois").style.setProperty("--i", indice);
+    ancora.append(elemento("b", "", patch.versao), dataElemento(patch.data), conta);
+    item.append(ancora);
     return item;
-  }
-
-  const item = clonar("tpl-mudanca");
-  preencher(item, "campo", rotuloCampo(mudanca.campo));
-  preencher(item, "antes", formatarCampo(mudanca.campo, mudanca.antes));
-  preencher(item, "depois", formatarCampo(mudanca.campo, mudanca.depois));
-  item.querySelector(".depois").style.setProperty("--i", indice);
-  return item;
-}
-
-async function carregarCartas() {
-  if (!cartasCache) {
-    cartasCache = fetchJson("dados/cartas.json").then((dados) => {
-      if (!dados || !dados.cartas || typeof dados.cartas !== "object") {
-        throw new Error("Arquivo de cartas inválido");
-      }
-      return dados.cartas;
-    });
-  }
-  return cartasCache;
-}
-
-async function renderizarCarta(dbfId, renderizacao) {
-  const cartas = await carregarCartas();
-  if (renderizacao !== numeroRenderizacao) {
-    return;
-  }
-  const carta = cartas[dbfId];
-  if (!carta) {
-    throw new Error("Carta não encontrada");
-  }
-
-  const ficha = clonar("tpl-ficha");
-  preencher(ficha, "nome", carta.nome);
-  preencher(ficha, "classe", nomeClasse(carta.classe));
-  inserirTextoSeguro(ficha.querySelector('[data-texto-carta="texto"]'), carta.texto);
-  ficha.querySelector('[data-campo="voltar"]').addEventListener("click", () => {
-    window.location.hash = rotaAnterior || "";
-  });
-
-  const atributos = ficha.querySelector('[data-campo="atributos"]');
-  const definicoes = [
-    ["custo", "Custo"],
-    ["ataque", "Ataque"],
-    ["vida", "Vida"],
-    ["durabilidade", "Durabilidade"],
-    ["armadura", "Armadura"]
-  ];
-
-  definicoes.forEach(([campo, rotulo], ordem) => {
-    if (carta[campo] === null || carta[campo] === undefined) {
-      return;
-    }
-    const atributo = clonar("tpl-atributo");
-    preencher(atributo, "rotulo", rotulo);
-    preencher(atributo, "valor", carta[campo]);
-    atributo.querySelector(".total").style.setProperty("--i", ordem);
-    atributos.append(atributo);
-  });
-
-  const historico = await carregarHistorico(dbfId);
-  if (renderizacao !== numeroRenderizacao) {
-    return;
-  }
-  const listaHistorico = ficha.querySelector('[data-campo="historico"]');
-  historico.forEach(({ patch, entrada }) => {
-    const linha = clonar("tpl-historico");
-    const link = linha.querySelector('[data-campo="patch"]');
-    link.href = rotaPatch(entrada.arquivo);
-    link.textContent = `Patch ${patch.versao ?? entrada.versao}`;
-    preencherData(linha.querySelector('[data-campo="data"]'), patch.data ?? entrada.data);
-    const grupos = patch.cartas ?? {};
-    const mudancas = [...(grupos.buffs ?? []), ...(grupos.nerfs ?? []), ...(grupos.alteradas ?? [])]
-      .find((item) => String(item.dbfId) === String(dbfId))?.mudancas ?? [];
-    const listaMudancas = linha.querySelector('[data-campo="mudancas"]');
-    mudancas.forEach((mudanca, indice) => listaMudancas.append(renderizarMudanca(mudanca, indice)));
-    listaHistorico.append(linha);
-  });
-
-  ficha.querySelector('[data-campo="sem-historico"]').hidden = historico.length > 0;
-  conteudo.append(ficha);
-  marcarAtivos("", "");
-  efeitos.revelarTitulos(conteudo);
-  efeitos.contar(conteudo);
-}
-
-async function carregarHistorico(dbfId) {
-  const encontrados = await Promise.all(indice.map(async (entrada) => {
-    const patch = await carregarPatch(entrada.arquivo);
-    return { patch, entrada };
   }));
-  const somentePatches = encontrados.map(({ patch }) => patch);
-  const historico = historicoDaCarta(dbfId, somentePatches);
-  return historico.map((patch) => encontrados.find((item) => item.patch === patch));
 }
 
-function inserirTextoSeguro(elemento, texto) {
-  const pilha = [elemento];
-
-  for (const token of higienizarTexto(texto)) {
-    if (token.tipo === "texto") {
-      pilha[pilha.length - 1].append(document.createTextNode(token.texto));
-      continue;
-    }
-
-    if (token.fechar) {
-      if (pilha.length > 1 && pilha[pilha.length - 1].tagName.toLowerCase() === token.nome) {
-        pilha.pop();
-      }
-      continue;
-    }
-
-    const no = document.createElement(token.nome);
-    pilha[pilha.length - 1].append(no);
-    pilha.push(no);
+function abrirPatch(versao) {
+  const patch = dados.patches.find((item) => item.versao === versao)
+    ?? dados.patches.find((item) => item.cartas.length) ?? dados.patches[0];
+  const detalhe = $("#detalhe");
+  detalhe.replaceChildren();
+  if (!patch) {
+    return;
   }
+  $$("#indice-patches a").forEach((ancora) => ancora.setAttribute("aria-current", String(ancora.dataset.versao === patch.versao)));
+  const topo = elemento("div", "detalhe-topo");
+  const titulo = elemento("h2", "", "Patch ");
+  titulo.append(elemento("em", "", patch.versao));
+  topo.append(titulo, link("Notícia oficial ↗", patch.link, "oficial"));
+  const medalhas = elemento("div", "medalhas");
+  GRUPOS.forEach(([grupo, rotulo], indice) => {
+    const medalha = elemento("div", "medalha " + ["b", "n", "a"][indice]);
+    const numero = elemento("b", "", patch[grupo]);
+    numero.dataset.contar = "";
+    medalha.append(icone(["buff", "nerf", "alterada"][indice]), numero, elemento("small", "", rotulo));
+    medalhas.append(medalha);
+  });
+  detalhe.append(topo, medalhas);
+  if (patch.topicos.length) {
+    const resumo = elemento("article", "pergaminho");
+    const cabeca = elemento("header");
+    const rotulo = elemento("span");
+    rotulo.append(elemento("b", "", "Resumo próprio"), " · gerado por IA");
+    cabeca.append(rotulo, elemento("span", "", patch.versao));
+    const lista = elemento("ol", "marcavel");
+    for (const topico of patch.topicos) {
+      const item = elemento("li");
+      const texto = elemento("span");
+      marcar(texto, topico);
+      item.append(icone("estrela"), texto);
+      lista.append(item);
+    }
+    resumo.append(cabeca, lista, elemento("footer", "", "Texto nosso, sem reproduzir a notícia da Blizzard."));
+    detalhe.append(resumo);
+  } else {
+    detalhe.append(elemento("p", "vazio", "O resumo desta versão ainda está na fila do monitor."));
+  }
+  if (!patch.cartas.length) {
+    detalhe.append(elemento("p", "vazio", "Nenhuma carta mudou de custo, ataque, vida ou texto nesta versão."));
+  } else {
+    montarMesa(detalhe, patch);
+  }
+  efeitos.observarMarcas(detalhe);
+  efeitos.contar(detalhe);
+}
+
+function montarMesa(raiz, patch) {
+  const mesa = elemento("div", "mesa");
+  const palco = elemento("div", "palco");
+  const mao = elemento("div", "mao");
+  mao.id = "mao";
+  mao.classList.toggle("muitas", patch.cartas.length > 7);
+  mao.setAttribute("role", "group");
+  mao.setAttribute("aria-label", "Cartas alteradas");
+  const coluna = elemento("div", "foco");
+  const foco = elemento("div", "carta");
+  foco.id = "foco";
+  foco.tabIndex = 0;
+  foco.setAttribute("role", "button");
+  let atual = patch.cartas[0];
+  let versao = "depois";
+  const mudancas = elemento("div");
+  mudancas.id = "mudancas";
+  const desenhar = (animar = true) => {
+    atualizarCarta(foco, atual, versao, efeitos, animar);
+    mudancas.replaceChildren(linhasMudanca(atual));
+  };
+  const segmento = montarSegmento((nova) => {
+    versao = nova;
+    desenhar();
+  });
+  coluna.append(foco, segmento, mudancas);
+  palco.append(mao, coluna);
+  mesa.append(palco);
+  raiz.append(mesa);
+  const n = patch.cartas.length;
+  const passo = Math.min(62, 340 / n);
+  patch.cartas.forEach((carta, indice) => {
+    const mini = botao("", "mini");
+    mini.style.setProperty("--i", indice);
+    mini.style.setProperty("--r", (indice - (n - 1) / 2) * Math.min(8, 48 / n) + "deg");
+    mini.style.left = "calc(50% - 68px + " + ((indice - (n - 1) / 2) * passo) + "px)";
+    mini.setAttribute("aria-label", carta.nome);
+    mini.setAttribute("aria-pressed", String(indice === 0));
+    const desenho = elemento("div", "carta");
+    desenharCarta(desenho, carta);
+    mini.append(desenho);
+    mini.addEventListener("click", () => {
+      atual = carta;
+      $$(".mini", mao).forEach((no) => no.setAttribute("aria-pressed", String(no === mini)));
+      desenhar();
+    });
+    mao.append(mini);
+  });
+  iniciarCarta(foco, efeitos);
+  desenhar(false);
+  if (!efeitos.reduzir) {
+    requestAnimationFrame(() => mao.classList.add("viva"));
+  }
+}
+
+function montarSegmento(aoTrocar) {
+  const segmento = elemento("div", "segmento");
+  segmento.setAttribute("role", "group");
+  segmento.setAttribute("aria-label", "Versão da carta");
+  for (const [valor, rotulo] of [["antes", "Antes"], ["depois", "Depois"]]) {
+    const no = botao(rotulo);
+    no.dataset.v = valor;
+    no.setAttribute("aria-pressed", String(valor === "depois"));
+    no.addEventListener("click", () => {
+      $$("button", segmento).forEach((outro) => outro.setAttribute("aria-pressed", String(outro === no)));
+      aoTrocar(valor);
+    });
+    segmento.append(no);
+  }
+  return segmento;
+}
+
+function montarCartas() {
+  const antigas = $("#grade-cartas");
+  const grade = elemento("div");
+  grade.id = "grade-cartas";
+  antigas.replaceWith(grade);
+  const instancias = dados.patches.flatMap((patch) => patch.cartas);
+  $("#filtro-cartas").replaceChildren(...[["todas", "Todas"], ...GRUPOS].map(([grupo, rotulo]) => {
+    const filtro = botao(rotulo + " ");
+    filtro.dataset.grupo = grupo;
+    filtro.setAttribute("aria-pressed", String(grupo === "todas"));
+    filtro.append(elemento("span", "", grupo === "todas" ? instancias.length : instancias.filter((carta) => carta.grupo === grupo).length));
+    filtro.addEventListener("click", () => {
+      grupoAtivo = grupo;
+      $$("#filtro-cartas button").forEach((no) => no.setAttribute("aria-pressed", String(no === filtro)));
+      filtrarCartas();
+    });
+    return filtro;
+  }));
+  for (const patch of dados.patches.filter((item) => item.cartas.length)) {
+    const grupo = elemento("details", "grupo-patch");
+    grupo.open = true;
+    grupo.dataset.versao = patch.versao;
+    const resumo = elemento("summary");
+    const titulo = elemento("h3", "", "Patch ");
+    titulo.append(elemento("em", "", patch.versao));
+    const data = dataElemento(patch.data);
+    data.append(" · " + patch.cartas.length + (patch.cartas.length === 1 ? " carta" : " cartas"));
+    const ancora = link("Ver o patch →", rotaVersao(patch.versao));
+    ancora.addEventListener("click", (evento) => evento.stopPropagation());
+    const seta = elemento("span", "seta-grupo");
+    seta.setAttribute("aria-hidden", "true");
+    resumo.append(titulo, data, ancora, seta);
+    const lista = elemento("ul", "grade-cartas");
+    for (const carta of patch.cartas) {
+      const item = elemento("li");
+      item.dataset.nome = carta.nome;
+      item.dataset.grupo = carta.grupo;
+      const abrir = botao();
+      abrir.setAttribute("aria-label", carta.nome);
+      const desenho = elemento("div", "carta");
+      // Na grade a carta tem uns 170 px: a imagem de 256 basta, mesmo em tela de alta densidade.
+      desenharCarta(desenho, carta, "depois", 1);
+      const rotulo = elemento("span", "rotulo");
+      rotulo.append(elemento("b", "t-" + carta.grupo, carta.grupo.slice(0, -1)), elemento("span", "", nomeClasse(carta.classe)));
+      abrir.append(desenho, rotulo);
+      abrir.addEventListener("click", () => abrirCarta(carta));
+      item.carta = carta;
+      item.append(abrir);
+      lista.append(item);
+    }
+    grupo.append(resumo, lista);
+    grupo.addEventListener("toggle", sincronizarRecolher);
+    resumo.addEventListener("click", (evento) => {
+      evento.preventDefault();
+      efeitos.alternarGrupo(grupo, !grupo.open || grupo.classList.contains("fechando"), sincronizarRecolher);
+    });
+    grade.append(grupo);
+  }
+  $("#recolher-todos").addEventListener("click", () => {
+    const grupos = $$(".grupo-patch").filter((grupo) => !grupo.hidden);
+    const abrir = !grupos.some((grupo) => grupo.open && !grupo.classList.contains("fechando"));
+    grupos.forEach((grupo) => efeitos.alternarGrupo(grupo, abrir, sincronizarRecolher));
+  });
+  $("#busca-cartas").addEventListener("input", filtrarCartas);
+}
+
+function sincronizarRecolher() {
+  $("#recolher-todos").textContent = $$(".grupo-patch").some((grupo) => !grupo.hidden && grupo.open) ? "Recolher todos" : "Expandir todos";
+}
+
+function filtrarCartas() {
+  $$("#grade-cartas .grade-cartas > li").forEach((item) => {
+    item.hidden = !filtrarCarta(item.carta, $("#busca-cartas").value, grupoAtivo);
+  });
+  $$(".grupo-patch").forEach((grupo) => {
+    grupo.hidden = !$$(".grade-cartas > li", grupo).some((item) => !item.hidden);
+  });
+  $("#sem-resultados").hidden = $$(".grupo-patch").some((grupo) => !grupo.hidden);
+  sincronizarRecolher();
+  efeitos.atualizar();
+}
+
+function abrirCarta(carta) {
+  cartaAberta = carta;
+  versaoCarta = "depois";
+  $("#carta-titulo").textContent = carta.nome;
+  const historico = dados.patches.flatMap((patch) => patch.cartas.filter((item) =>
+    String(item.dbfId) === String(carta.dbfId) || item.nome === carta.nome
+  ));
+  $("#historico-carta").replaceChildren(...historico.map((mudanca) => {
+    const item = elemento("li");
+    item.append(link("Patch " + mudanca.versao, rotaVersao(mudanca.versao)), elemento("span", "", dataBR(mudanca.data)), elemento("b", "t-" + mudanca.grupo, mudanca.grupo), linhasMudanca(mudanca));
+    return item;
+  }));
+  atualizarCarta($("#carta-grande"), cartaAberta, versaoCarta, efeitos, false);
+  janelaCarta.showModal();
+}
+
+function configurarDialogos() {
+  $$(".janela").forEach((janela) => {
+    janela.addEventListener("click", (evento) => {
+      const retangulo = janela.getBoundingClientRect();
+      const fora = evento.clientX < retangulo.left || evento.clientX > retangulo.right || evento.clientY < retangulo.top || evento.clientY > retangulo.bottom;
+      if (evento.target.closest("[data-fechar]") || (evento.target === janela && fora)) {
+        janela.close();
+      }
+    });
+  });
+  $("#historico-carta").addEventListener("click", (evento) => {
+    if (evento.target.closest("a")) {
+      janelaCarta.close();
+    }
+  });
 }
 
 function configurarBusca() {
-  campoBusca.addEventListener("focus", () => {
-    carregarCartas().catch(mostrarErro);
-  });
-  campoBusca.addEventListener("input", async () => {
-    const consulta = campoBusca.value;
-    if (consulta.trim().length < 2) {
-      fecharBusca();
+  $("#busca").addEventListener("keydown", (evento) => {
+    if (evento.key !== "Enter") {
       return;
     }
-
-    try {
-      const cartas = await carregarCartas();
-      renderizarResultados(buscar(cartas, consulta));
-    } catch {
-      mostrarErro();
+    evento.preventDefault();
+    const consulta = evento.target.value.trim();
+    // A busca global mantém a D32: catálogo atual, deduplicado, Padrão/Wild.
+    const resultados = buscar(dados.cartas, consulta, 1);
+    if (resultados.length) {
+      const carta = resultados[0];
+      const depois = { ...carta };
+      abrirCarta({ ...carta, antes: depois, depois, mudancas: [] });
+      return;
     }
-  });
-  campoBusca.addEventListener("keydown", navegarBusca);
-  document.addEventListener("click", (evento) => {
-    if (!evento.target.closest(".busca")) {
-      fecharBusca();
-    }
+    $("#busca-cartas").value = consulta;
+    grupoAtivo = "todas";
+    $$("#filtro-cartas button").forEach((no) => no.setAttribute("aria-pressed", String(no.dataset.grupo === "todas")));
+    window.location.hash = "#/cartas";
+    filtrarCartas();
   });
 }
 
-function renderizarResultados(cartas) {
-  resultadosBusca.replaceChildren();
-  resultadoAtivo = -1;
+const ASSUNTOS = [["todas", "Todas"], ["expansao", "Expansões"], ["evento", "Eventos"], ["loja", "Loja"], ["campos", "Campos de Batalha"], ["esports", "Esports"]];
+const CAPAS = {
+  expansao: ["#a78bfa", "#4c1d95", "lis"],
+  evento: ["#f3d27a", "#1a1430", "estrela"],
+  loja: ["#6ff0b8", "#0b2027", "mana"],
+  campos: ["#d36bff", "#1d0f2e", "ataque"],
+  esports: ["#ff7a72", "#1f0d14", "vida"]
+};
 
-  if (!cartas.length) {
-    const nenhum = document.createElement("button");
-    nenhum.type = "button";
-    nenhum.disabled = true;
-    nenhum.className = "resultado";
-    nenhum.textContent = "Nenhuma carta com esse nome";
-    resultadosBusca.append(nenhum);
-  } else {
-    cartas.forEach((carta, ordem) => {
-      const resultado = clonar("tpl-resultado");
-      const botao = resultado.querySelector(".resultado");
-      preencher(resultado, "nome", carta.nome);
-      preencher(resultado, "info", carta.custo === null || carta.custo === undefined
-        ? nomeClasse(carta.classe)
-        : `${nomeClasse(carta.classe)} · ${carta.custo} de mana`);
-      botao.setAttribute("aria-selected", "false");
-      botao.style.setProperty("--i", ordem);
-      botao.addEventListener("click", () => {
-        fecharBusca();
-        window.location.hash = `#carta/${carta.dbfId}`;
+function capaNoticia(assunto, indice, mini = false) {
+  const [cor, fundo, simbolo] = CAPAS[assunto];
+  const capa = elemento("figure", "capa-noticia" + (mini ? " mini-capa" : ""));
+  capa.style.setProperty("--cor-capa", cor);
+  capa.style.setProperty("--fundo-capa", fundo);
+  capa.style.setProperty("--cx", 30 + indice * 37 % 50 + "%");
+  capa.style.setProperty("--cy", 30 + indice * 23 % 50 + "%");
+  capa.style.margin = "0";
+  capa.setAttribute("aria-hidden", "true");
+  capa.append(icone(simbolo));
+  return capa;
+}
+
+function resumoNoticia(noticia, alvo) {
+  marcar(alvo, noticia.topicos.length ? noticia.topicos.join(" ") : "O resumo desta notícia ainda está na fila do monitor (lotes diários).");
+}
+
+function montarNoticias() {
+  const noticias = dados.noticias.map((noticia) => ({ ...noticia, assunto: assuntoNoticia(noticia.titulo) }));
+  const manchete = $("#manchete");
+  manchete.replaceChildren();
+  manchete.hidden = !noticias.length;
+  if (noticias.length) {
+    const primeira = noticias[0];
+    const titulo = elemento("h3");
+    marcar(titulo, primeira.titulo);
+    const resumo = elemento("p");
+    resumoNoticia(primeira, resumo);
+    const ancora = link("Notícia oficial", primeira.link, "botao real");
+    ancora.append(icone("estrela"));
+    manchete.append(capaNoticia(primeira.assunto[0], 0), elemento("small", "", "Mais recente · " + primeira.assunto[1] + " · " + dataBR(primeira.data)), titulo, resumo, ancora);
+  }
+  $("#notas").replaceChildren(...noticias.slice(1).map((noticia, indice) => {
+    const item = elemento("li", "nota");
+    item.dataset.tipo = noticia.assunto[0];
+    const detalhes = elemento("details");
+    detalhes.dataset.arquivo = noticia.arquivo;
+    const cabeca = elemento("summary");
+    const texto = elemento("div");
+    const titulo = elemento("b");
+    marcar(titulo, noticia.titulo);
+    texto.append(elemento("small", "", noticia.assunto[1]), titulo);
+    cabeca.append(capaNoticia(noticia.assunto[0], indice + 1, true), dataElemento(noticia.data), texto, icone("estrela"));
+    const resumo = elemento("p", "resumo");
+    resumoNoticia(noticia, resumo);
+    const fonte = elemento("em");
+    fonte.append(link("Notícia original na Battle.net ↗", noticia.link));
+    resumo.append(fonte);
+    detalhes.append(cabeca, resumo);
+    item.append(detalhes);
+    return item;
+  }));
+  $("#filtros").replaceChildren(...ASSUNTOS.map(([id, rotulo]) => {
+    const no = botao(rotulo + " ");
+    no.dataset.assunto = id;
+    no.setAttribute("aria-pressed", String(id === "todas"));
+    no.append(elemento("span", "", noticias.slice(1).filter((noticia) => id === "todas" || noticia.assunto[0] === id).length));
+    no.addEventListener("click", () => {
+      $$("#filtros button").forEach((outro) => outro.setAttribute("aria-pressed", String(outro === no)));
+      let ordem = 0;
+      $$("#notas .nota").forEach((item) => {
+        item.hidden = id !== "todas" && item.dataset.tipo !== id;
+        item.classList.remove("entra");
+        if (!item.hidden && !efeitos.reduzir) {
+          item.style.animationDelay = ordem * 50 + "ms";
+          ordem += 1;
+          void item.offsetWidth;
+          item.classList.add("entra");
+        }
       });
-      resultadosBusca.append(resultado);
+      efeitos.atualizar();
     });
-  }
-
-  resultadosBusca.hidden = false;
+    return no;
+  }));
+  efeitos.observarMarcas($('[data-pagina="noticias"]'));
 }
 
-function navegarBusca(evento) {
-  const opcoes = [...resultadosBusca.querySelectorAll('[role="option"]:not([disabled])')];
-  if (evento.key === "Escape") {
-    fecharBusca();
-    return;
+function navegar() {
+  const rota = lerRota(window.location.hash);
+  // Preserva links antigos já publicados pelo bot.
+  let pagina = rota.tipo;
+  let versao = rota.versao;
+  if (pagina === "patch") {
+    pagina = "patches";
+    versao = dados?.patches.find((patch) => patch.arquivo === rota.arquivo)?.versao;
+  } else if (pagina === "noticia") {
+    pagina = "noticias";
+  } else if (pagina === "carta") {
+    pagina = "cartas";
   }
-  if (!opcoes.length || !["ArrowDown", "ArrowUp", "Enter"].includes(evento.key)) {
-    return;
-  }
-
-  evento.preventDefault();
-  if (evento.key === "Enter" && resultadoAtivo >= 0) {
-    opcoes[resultadoAtivo].click();
-    return;
-  }
-
-  const passo = evento.key === "ArrowUp" ? -1 : 1;
-  resultadoAtivo = resultadoAtivo < 0
-    ? (passo < 0 ? opcoes.length - 1 : 0)
-    : (resultadoAtivo + passo + opcoes.length) % opcoes.length;
-  opcoes.forEach((opcao, indice) => {
-    opcao.setAttribute("aria-selected", String(indice === resultadoAtivo));
+  const mudou = pagina !== rotaAtual;
+  rotaAtual = pagina;
+  $$(".pagina").forEach((no) => {
+    const ativa = no.dataset.pagina === pagina;
+    no.hidden = !ativa;
+    if (ativa && mudou) {
+      no.classList.remove("chegou");
+      void no.offsetWidth;
+      no.classList.add("chegou");
+    }
   });
-}
-
-function fecharBusca() {
-  resultadosBusca.hidden = true;
-  resultadoAtivo = -1;
-}
-
-function marcarPatchAtivo(arquivo) {
-  lista.querySelectorAll(".patch").forEach((botao, ordem) => {
-    const ativo = indice[ordem]?.arquivo === arquivo;
-    botao.setAttribute("aria-current", String(ativo));
+  $$(".links a, .menu-movel a").forEach((no) => {
+    const alvo = lerRota(no.getAttribute("href")).tipo;
+    if (alvo === pagina) {
+      no.setAttribute("aria-current", "page");
+    } else {
+      no.removeAttribute("aria-current");
+    }
   });
-}
-
-function marcarAtivos(arquivoPatch, arquivoNoticia) {
-  ativos = { patch: arquivoPatch, noticia: arquivoNoticia };
-  marcarPatchAtivo(arquivoPatch);
-  listaNoticias.querySelectorAll(".patch").forEach((botao, ordem) => {
-    botao.setAttribute("aria-current", String(indiceNoticias[ordem]?.arquivo === arquivoNoticia));
-  });
-}
-
-function clonar(id) {
-  const modelo = porId(id);
-  if (!modelo?.content) {
-    throw new Error(`Modelo ausente: ${id}`);
+  if (dados && pagina === "patches") {
+    abrirPatch(versao);
   }
-  return modelo.content.cloneNode(true);
-}
-
-function preencher(raiz, nome, valor) {
-  const alvo = raiz.querySelector(`[data-campo="${nome}"]`);
-  if (alvo) {
-    alvo.textContent = String(valor ?? "");
+  if (mudou) {
+    $$(".janela[open]").forEach((janela) => janela.close());
+    window.scrollTo({ top: 0, behavior: "instant" });
+    if (!efeitos.reduzir) {
+      $("#cortina").classList.remove("corre");
+      void $("#cortina").offsetWidth;
+      $("#cortina").classList.add("corre");
+    }
+    $("#conteudo-principal").focus({ preventScroll: true });
   }
-}
-
-function preencherData(elemento, data) {
-  const valor = String(data ?? "");
-  elemento.dateTime = valor;
-  const dataLocal = new Date(`${valor}T00:00:00Z`);
-  elemento.textContent = Number.isNaN(dataLocal.getTime())
-    ? valor
-    : new Intl.DateTimeFormat("pt-BR", { dateStyle: "medium", timeZone: "UTC" }).format(dataLocal);
-}
-
-function rotuloContagem(quantidade, singular) {
-  return `${quantidade} ${singular}${quantidade === 1 ? "" : "s"}`;
-}
-
-function rotuloCampo(campo) {
-  const rotulos = {
-    custo: "custo",
-    ataque: "ataque",
-    vida: "vida",
-    durabilidade: "durabilidade",
-    armadura: "armadura"
-  };
-  return rotulos[campo] ?? campo;
-}
-
-function ocultarEstados() {
-  estadoCarregando.hidden = true;
-  estadoVazio.hidden = true;
-  estadoErro.hidden = true;
-}
-
-function mostrarVazio() {
-  ocultarEstados();
-  estadoVazio.hidden = false;
-}
-
-function mostrarErro() {
-  ocultarEstados();
-  estadoErro.hidden = false;
+  if (dados) {
+    efeitos.rodarFalas(pagina, dados.falas[pagina] ?? []);
+    if (rota.tipo === "carta" && dados.cartas[rota.dbfId]) {
+      const carta = { ...dados.cartas[rota.dbfId], dbfId: rota.dbfId };
+      abrirCarta({ ...carta, antes: carta, depois: carta, mudancas: [] });
+    }
+    if (rota.tipo === "noticia") {
+      const detalhes = $$("#notas details").find((no) => no.dataset.arquivo === rota.arquivo);
+      if (detalhes) {
+        detalhes.open = true;
+        detalhes.scrollIntoView({ block: "center" });
+      }
+    }
+  }
+  efeitos.mudarPagina(pagina);
 }

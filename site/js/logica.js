@@ -32,7 +32,7 @@ export function normalizar(texto) {
     .toLocaleLowerCase("pt-BR");
 }
 
-// Fora do Padrão e do Selvagem: cópias ocultas, heróis alternativos e o Formato Clássico.
+// Fora do Padrão e do Wild: cópias ocultas, heróis alternativos e o Formato Clássico.
 const FORA_DA_BUSCA = new Set(["CORE_HIDDEN", "HERO_SKINS", "VANILLA"]);
 
 function preferida(a, b) {
@@ -107,6 +107,17 @@ export function higienizarTexto(marcacao) {
 export function lerRota(hash) {
   const valor = String(hash ?? "").replace(/^#/, "");
 
+  const pagina = valor.match(/^\/(patches|cartas|noticias|meta)(?:\/([^/]+))?\/?$/);
+  if (pagina) {
+    if (pagina[1] === "patches" && pagina[2]) {
+      try {
+        return { tipo: "patches", versao: decodeURIComponent(pagina[2]) };
+      } catch {
+        return { tipo: "patches" };
+      }
+    }
+    return { tipo: pagina[1] };
+  }
   if (!valor) {
     return { tipo: "inicio" };
   }
@@ -184,4 +195,109 @@ export async function carregarJson(url, fetcher = fetch) {
     throw erro;
   }
   return resposta.json();
+}
+export const GRUPOS = [["buffs", "Buffs"], ["nerfs", "Nerfs"], ["alteradas", "Alteradas"]];
+
+const ATRIBUTOS = ["custo", "ataque", "vida", "durabilidade", "armadura", "texto"];
+
+export function rotaVersao(versao) {
+  return `#/patches/${encodeURIComponent(versao)}`;
+}
+
+// O diff só guarda campos alterados. Desfazemos TODOS os diffs, inclusive
+// revisadas, para reconstruir cada data sem emprestar números da build atual.
+export function prepararPatches(patches, cartas = {}) {
+  const estados = new Map(Object.entries(cartas).map(([id, carta]) => [String(id), { ...carta }]));
+  return [...patches].sort((a, b) => String(b.data).localeCompare(String(a.data))).map((patch) => {
+    const visiveis = [];
+    for (const grupo of [...GRUPOS.map(([chave]) => chave), "revisadas"]) {
+      for (const carta of patch.cartas?.[grupo] ?? []) {
+        const id = String(carta.dbfId);
+        const atual = cartas[id] ?? {};
+        const depois = { ...(estados.get(id) ?? carta) };
+        for (const mudanca of carta.mudancas ?? []) {
+          if (ATRIBUTOS.includes(mudanca.campo)) {
+            depois[mudanca.campo] = mudanca.depois;
+          }
+        }
+        const antes = { ...depois };
+        for (const mudanca of carta.mudancas ?? []) {
+          if (ATRIBUTOS.includes(mudanca.campo)) {
+            antes[mudanca.campo] = mudanca.antes;
+          }
+        }
+        estados.set(id, antes);
+        if (grupo !== "revisadas") {
+          visiveis.push({
+            ...atual,
+            ...carta,
+            id: atual.id,
+            grupo,
+            versao: patch.versao,
+            data: patch.data,
+            antes,
+            depois,
+            historica: ATRIBUTOS.some((campo) => depois[campo] !== atual[campo])
+          });
+        }
+      }
+    }
+    return {
+      ...patch,
+      cartas: visiveis,
+      topicos: topicosDoResumo(patch),
+      link: patch.noticia?.link ?? patch.noticia_en?.link,
+      buffs: visiveis.filter((carta) => carta.grupo === "buffs").length,
+      nerfs: visiveis.filter((carta) => carta.grupo === "nerfs").length,
+      alteradas: visiveis.filter((carta) => carta.grupo === "alteradas").length
+    };
+  });
+}
+
+const ENDERECO_OFICIAL = "https://d15f34w2p8l1cc.cloudfront.net/hearthstone/";
+
+export function imagemDaCarta(carta, versao = "depois", densidade = 1, imagens = {}) {
+  if (versao !== "depois") {
+    return null;
+  }
+  // A imagem oficial (D40) vem de dados/imagens.json; só um hash exato de 64 caracteres vira endereço.
+  const hash = carta.dbfId == null ? null : imagens?.[String(carta.dbfId)];
+  if (typeof hash === "string" && /^[0-9a-f]{64}$/.test(hash)) {
+    return `${ENDERECO_OFICIAL}${hash}.png`;
+  }
+  // O render do HearthstoneJSON só mostra a carta de hoje: em carta já alterada depois do patch, vale o desenho próprio.
+  if (carta.historica || !/^[A-Za-z0-9_]+$/.test(carta.id ?? "")) {
+    return null;
+  }
+  const tamanho = densidade > 1 ? "512x" : "256x";
+  return `https://art.hearthstonejson.com/v1/render/latest/ptBR/${tamanho}/${carta.id}.png`;
+}
+
+export function marcaMudanca(carta, versao, campo) {
+  const antes = carta.antes?.[campo];
+  const depois = carta.depois?.[campo];
+  if (versao === "antes" || antes == null || depois == null || antes === depois || !CAMPOS_NUMERICOS.has(campo)) {
+    return "";
+  }
+  return (depois > antes) === (campo !== "custo") ? "buff" : "nerf";
+}
+
+export function filtrarCarta(carta, consulta, grupo = "todas") {
+  return (grupo === "todas" || carta.grupo === grupo) && normalizar(carta.nome).includes(normalizar(consulta).trim());
+}
+
+export function assuntoNoticia(titulo) {
+  if (/campeonato|playoffs|e-sports|esports|mundial/i.test(titulo)) {
+    return ["esports", "Esports"];
+  }
+  if (/campos de batalha|aberrações/i.test(titulo)) {
+    return ["campos", "Campos de Batalha"];
+  }
+  if (/oferta|trilha|recompensa|loja|cofre/i.test(titulo)) {
+    return ["loja", "Loja e recompensas"];
+  }
+  if (/evento|jornada|cards de teste/i.test(titulo)) {
+    return ["evento", "Eventos"];
+  }
+  return ["expansao", "Expansões"];
 }

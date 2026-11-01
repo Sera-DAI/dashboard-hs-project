@@ -1,0 +1,83 @@
+{
+  "cartas": {
+    "7": {
+      "id": "TEST_007",
+      "nome": "Poção Volátil",
+      "classe": "MAGE",
+      "custo": 3,
+      "ataque": 4,
+      "vida": 5,
+      "texto": "<b>Texto atual.</b>",
+      "durabilidade": null,
+      "armadura": null
+    },
+    "8": {
+      "id": "TEST_008",
+      "nome": "Arma",
+      "classe": "WARRIOR",
+      "custo": 1,
+      "ataque": 2,
+      "durabilidade": 3
+    }
+  },
+  "patches": [
+    {
+      "versao": "1.0",
+      "data": "2026-04-28",
+      "cartas": {
+        "buffs": [
+          {
+            "dbfId": 7,
+            "nome": "Poção Volátil",
+            "classe": "MAGE",
+            "mudancas": [
+              { "campo": "custo", "antes": 5, "depois": 2 }
+            ]
+          }
+        ],
+        "nerfs": [],
+        "alteradas": [],
+        "revisadas": []
+      }
+    },
+    {
+      "versao": "2.0",
+      "data": "2026-05-01",
+      "cartas": {
+        "buffs": [],
+        "nerfs": [
+          {
+            "dbfId": 7,
+            "nome": "Poção Volátil",
+            "classe": "MAGE",
+            "mudancas": [
+              { "campo": "custo", "antes": 2, "depois": 3 },
+              { "campo": "vida", "antes": 7, "depois": 5 }
+            ]
+          }
+        ],
+        "alteradas": [],
+        "revisadas": []
+      }
+    },
+    {
+      "versao": "3.0",
+      "data": "2026-06-01",
+      "cartas": {
+        "revisadas": [
+          {
+            "dbfId": 7,
+            "mudancas": [
+              { "campo": "texto", "antes": "<b>Texto antigo.</b>", "depois": "<b>Texto atual.</b>" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "versao": "4.0",
+      "data": "2026-07-01",
+      "cartas": null
+    }
+  ]
+}

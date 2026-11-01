@@ -1,238 +1,280 @@
 <!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>Hearthstone DS</title>
-  <meta name="description" content="Monitor pessoal de patch notes de Hearthstone: histórico de patches, cartas alteradas, notícias resumidas e busca por carta.">
-  <meta name="color-scheme" content="dark">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Nunito:wght@400;600;700;800&display=swap">
-  <link rel="stylesheet" href="css/taverna.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Patches, notícias e decks do meta de Hearthstone, lidos antes de você entrar na Taverna. Projeto pessoal e de fã, sem fins comerciais.">
+<meta name="color-scheme" content="dark light">
+<title>Dash'board HS</title>
+<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="icon" type="image/png" href="img/favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="fetch" href="dados/cartas.json" crossorigin>
+<link rel="preload" as="fetch" href="dados/indice.json" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
+<link rel="stylesheet" href="css/darc.css">
+
+<!-- Sprite de ícones SVG: buff, nerf, alterada, estrela, notícia, meta. Os ícones de classe são imagens em img/classes/ -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <linearGradient id="g-mana" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8fb0ff"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+    <linearGradient id="g-ataque" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f1d58e"/><stop offset="1" stop-color="#8a6420"/></linearGradient>
+    <linearGradient id="g-vida" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ff7a72"/><stop offset="1" stop-color="#9a1f18"/></linearGradient>
+  <filter id="gasto" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency=".045 .09" numOctaves="4" seed="7" result="ruido"/><feColorMatrix in="ruido" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 -9 7.2" result="furos"/><feComposite in="SourceGraphic" in2="furos" operator="in"/></filter>
+  </defs>
+  <symbol id="i-estrela" viewBox="0 0 24 24"><path d="M12 0C12.8 7.5 16.5 11.2 24 12 16.5 12.8 12.8 16.5 12 24 11.2 16.5 7.5 12.8 0 12 7.5 11.2 11.2 7.5 12 0Z" fill="currentColor"/></symbol>
+  <symbol id="i-lis" viewBox="0 0 48 48"><path d="M24 3c-5 6-6 12-3 19-4-3-9-3-12 0 4 0 7 2 8 6H13v3h7c-1 4-4 6-8 7 5 2 9 1 12-2 3 3 7 4 12 2-4-1-7-3-8-7h7v-3h-4c1-4 4-6 8-6-3-3-8-3-12 0 3-7 2-13-3-19Z" fill="currentColor"/><path d="M21 34h6v10h-6z" fill="currentColor"/></symbol>
+  <symbol id="i-mana" viewBox="0 0 48 48"><path d="M24 2 43 13v22L24 46 5 35V13Z" fill="url(#g-mana)" stroke="#e9b949" stroke-width="1.5"/><path d="M24 9 37 16.5v15L24 39 11 31.5v-15Z" fill="none" stroke="rgba(255,255,255,.35)"/></symbol>
+  <symbol id="i-ataque" viewBox="0 0 48 48"><path d="M24 3 44 24 24 45 4 24Z" fill="url(#g-ataque)" stroke="#f6e3b0" stroke-width="1.2"/></symbol>
+  <symbol id="i-vida" viewBox="0 0 48 48"><path d="M24 45C10 34 4 26 4 18 4 10 10 5 16 5c4 0 6.5 2 8 4.5C25.5 7 28 5 32 5c6 0 12 5 12 13 0 8-6 16-20 27Z" fill="url(#g-vida)" stroke="#e9b949" stroke-width="1.5"/></symbol>
+  <symbol id="i-busca" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" fill="none" stroke="currentColor" stroke-width="2"/><path d="m20 20-4-4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></symbol>
+  <symbol id="i-buff" viewBox="0 0 24 24"><path d="M12 3 21 14h-6v7H9v-7H3Z" fill="currentColor"/></symbol>
+  <symbol id="i-nerf" viewBox="0 0 24 24"><path d="M12 21 3 10h6V3h6v7h6Z" fill="currentColor"/></symbol>
+  <symbol id="i-alterada" viewBox="0 0 24 24"><path d="M4 8h14l-3-3M20 16H6l3 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+
+  <symbol id="i-seta-d" viewBox="0 0 24 24"><path d="M4 12h15m-6-6 6 6-6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
 </head>
 <body>
-  <a class="pular" href="#detalhe">Pular para o conteúdo</a>
-  <div class="app" id="app">
-    <canvas class="brasas" id="brasas" aria-hidden="true"></canvas>
-
-    <header class="barra">
-      <a class="marca" href="#" aria-label="Hearthstone DS, início">
-        <span class="selo" aria-hidden="true">DS</span>
-        <span><b>Hearthstone DS</b><small>Monitor pessoal de patch notes</small></span>
-      </a>
-      <div class="busca" role="search">
-        <label class="oculto" for="busca">Buscar carta</label>
-        <input id="busca" type="search" placeholder="Buscar carta pelo nome" autocomplete="off" aria-controls="busca-resultados">
-        <div class="resultados" id="busca-resultados" role="listbox" hidden></div>
-      </div>
-    </header>
-
-    <div class="corpo">
-      <nav class="lista" aria-label="Patches e notícias">
-        <p class="rotulo">Patches gravados</p>
-        <ol id="lista-patches"></ol>
-        <button type="button" class="mais" id="mais-patches" aria-controls="lista-patches" hidden>Mostrar mais</button>
-        <p class="rotulo rotulo-noticias" id="rotulo-noticias" hidden>Notícias</p>
-        <ol id="lista-noticias" hidden></ol>
-        <button type="button" class="mais" id="mais-noticias" aria-controls="lista-noticias" hidden>Mostrar mais</button>
-      </nav>
-
-      <main class="detalhe" id="detalhe" aria-live="polite" tabindex="-1">
-        <div class="estado" id="estado-carregando">
-          <span class="giro" aria-hidden="true"></span>
-          <p>Carregando os patches…</p>
-        </div>
-        <div class="estado" id="estado-vazio" hidden>
-          <span class="selo grande" aria-hidden="true">✦</span>
-          <h2>Nenhum patch desde 23/10/2026</h2>
-          <p>O monitor confere a Blizzard e o HearthstoneJSON a cada hora. Quando sair um patch, ele aparece aqui com as cartas alteradas.</p>
-        </div>
-        <div class="estado erro" id="estado-erro" hidden>
-          <h2>Não foi possível carregar os dados</h2>
-          <p>Recarregue a página em alguns minutos. Se continuar, a última execução do monitor pode ter falhado.</p>
-        </div>
-        <div id="conteudo"></div>
-      </main>
+<a class="pular" href="#conteudo-principal">Pular para o conteúdo</a>
+<div class="cortina" id="cortina" aria-hidden="true"></div>
+<div class="progresso" id="progresso" aria-hidden="true"><span></span><b>Início</b></div>
+<div class="fio-rolagem" id="fio" aria-hidden="true"><i class="trilho"></i><i class="enche"></i><i class="agulha"></i><span class="nos"></span></div>
+<canvas class="poeira" id="poeira" aria-hidden="true"></canvas>
+<header class="barra">
+  <div class="miolo">
+    <a class="marca" href="#/"><img class="marca-ico" src="img/icone-d.webp" alt="" width="36" height="36">Dash'board<i>&nbsp;HS</i></a>
+    <nav class="links" aria-label="Páginas"><a href="#/">Início</a><a href="#/patches">Patches</a><a href="#/cartas">Cartas</a><a href="#/noticias">Notícias</a><a href="#/meta">Meta</a></nav>
+    <div class="busca" role="search">
+      <label for="busca" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Buscar carta</label>
+      <svg aria-hidden="true"><use href="#i-busca"/></svg>
+      <input id="busca" type="search" placeholder="buscar carta" autocomplete="off">
     </div>
+  </div>
+  <nav class="menu-movel" aria-label="Páginas"><a href="#/">Início</a><a href="#/patches">Patches</a><a href="#/cartas">Cartas</a><a href="#/noticias">Notícias</a><a href="#/meta">Meta</a></nav>
+</header>
 
-    <section class="secao-meta" id="meta" aria-labelledby="meta-titulo">
-      <header class="cabeca-meta">
-        <p class="rotulo">Meta</p>
-        <h2 id="meta-titulo">Decks e estatísticas do meta</h2>
-        <p>Atalhos para o HSGuru e o HSReplay, já filtrados. Os números ficam nesses sites; aqui só há os links. No Telegram, <code>/decks &lt;classe&gt;</code> traz os decks recentes do Top 500 da Lenda.</p>
-      </header>
-      <ul class="visao-meta">
-        <li><a class="atalho" href="https://www.hsguru.com/meta?format=2" target="_blank" rel="noopener"><small>HSGuru</small><b>Tier list do Padrão</b></a></li>
-        <li><a class="atalho" href="https://www.hsguru.com/meta?format=1" target="_blank" rel="noopener"><small>HSGuru</small><b>Tier list do Selvagem</b></a></li>
-        <li><a class="atalho" href="https://hsreplay.net/meta/#gameType=RANKED_STANDARD" target="_blank" rel="noopener"><small>HSReplay</small><b>Meta do Padrão</b></a></li>
-        <li><a class="atalho" href="https://hsreplay.net/meta/#gameType=RANKED_WILD" target="_blank" rel="noopener"><small>HSReplay</small><b>Meta do Selvagem</b></a></li>
-      </ul>
-      <p class="rotulo rotulo-classes">Decks por classe no HSGuru, de Diamante a Lenda</p>
-      <ul class="classes-meta">
-          <li class="classe-meta" style="--i:0">
-            <span class="nome-classe">Cavaleiro da Morte</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=DEATHKNIGHT&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=DEATHKNIGHT&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:1">
-            <span class="nome-classe">Caçador de Demônios</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=DEMONHUNTER&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=DEMONHUNTER&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:2">
-            <span class="nome-classe">Druida</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=DRUID&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=DRUID&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:3">
-            <span class="nome-classe">Caçador</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=HUNTER&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=HUNTER&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:4">
-            <span class="nome-classe">Mago</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=MAGE&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=MAGE&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:5">
-            <span class="nome-classe">Paladino</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=PALADIN&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=PALADIN&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:6">
-            <span class="nome-classe">Sacerdote</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=PRIEST&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=PRIEST&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:7">
-            <span class="nome-classe">Ladino</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=ROGUE&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=ROGUE&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:8">
-            <span class="nome-classe">Xamã</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=SHAMAN&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=SHAMAN&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:9">
-            <span class="nome-classe">Bruxo</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=WARLOCK&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=WARLOCK&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-          <li class="classe-meta" style="--i:10">
-            <span class="nome-classe">Guerreiro</span>
-            <span class="formatos"><a href="https://www.hsguru.com/decks?format=2&amp;player_class=WARRIOR&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Padrão</a><a href="https://www.hsguru.com/decks?format=1&amp;player_class=WARRIOR&amp;rank=diamond_to_legend" target="_blank" rel="noopener">Selvagem</a></span>
-          </li>
-      </ul>
+<main id="conteudo-principal" tabindex="-1">
+  <div class="aviso-estado" role="status" aria-live="polite">
+    <p data-e="carregando">Carregando os patches…</p>
+    <p data-e="erro">Não foi possível carregar os dados. Recarregue em alguns minutos; se continuar, a última execução do monitor pode ter falhado.</p>
+  </div>
+  <!-- ======================= INÍCIO ======================= -->
+  <div class="pagina" data-pagina="inicio">
+    <section class="hero hero-deck s-marfim" id="cena" aria-labelledby="t-hero">
+      <div class="deck-arte">
+        <img fetchpriority="high" decoding="async" src="img/inicio-darc.webp" alt="A feiticeira do Dash'board HS, de cabelo dourado e vestido preto, branco e violeta, mostra um leque de cartas enquanto fitas de magia violeta e estrelas douradas giram à sua volta">
+        <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
+      </div>
+      <svg class="brilho-estrela e1" aria-hidden="true"><use href="#i-estrela"/></svg>
+      <svg class="brilho-estrela e2" aria-hidden="true"><use href="#i-estrela"/></svg>
+      <svg class="brilho-estrela e3" aria-hidden="true"><use href="#i-estrela"/></svg>
+      <span class="deck-fio" aria-hidden="true"></span>
+      <div class="miolo">
+        <div class="texto-hero">
+          <p class="sobre" style="--i:0" id="sobre-hero">Patch atual</p>
+          <h1 class="titulo-hero titulo-poster" id="t-hero" style="--i:1"><span class="linha-marca">Dash<svg class="lis-apostrofo" viewBox="0 0 48 48" role="img" aria-label="'"><use href="#i-lis"/></svg>board</span> <span class="ds">HS</span><span class="riscos" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span></h1>
+          <p class="lema" style="--i:2">Patches, notícias e o meta, lidos <b>antes</b> de você entrar na Taverna.</p>
+          <p class="lide" style="--i:3">Um monitor de tudo o que acontece em Hearthstone: patch notes com buffs e nerfs carta por carta, notícias oficiais resumidas (expansões, eventos, loja e esports) e atalhos para os melhores decks de cada classe, no Padrão e no Wild. Quando algo muda, avisa no Telegram e organiza tudo aqui.</p>
+          <div class="botoes" style="--i:4">
+            <a class="botao real" href="#/patches">Último patch<svg aria-hidden="true"><use href="#i-estrela"/></svg></a>
+            <a class="botao linha" href="#/noticias">Notícias</a>
+            <a class="botao linha" href="#/meta">Decks do meta</a>
+          </div>
+        </div>
+      </div>
+    </section>
+    <div class="estandarte" aria-hidden="true"><div class="faixa" id="faixa1"></div></div>
+
+    <section class="s-marfim secao" aria-labelledby="t-site">
+      <div class="miolo">
+        <p class="capitulo"><b>I</b><span>O site</span></p>
+        <div class="dupla revela">
+          <h2 id="t-site">Tudo de Hearthstone, <em>num lugar só.</em></h2>
+          <p class="objetivo">O objetivo é simples: você <b>não precisa ler</b> a nota inteira, caçar a notícia nem montar deck às cegas para saber o que mudou e o que está ganhando.</p>
+        </div>
+        <ul class="portas" id="portas"></ul>
+      </div>
     </section>
 
-    <footer class="rodape">
-      Dados de cartas do <a href="https://hearthstonejson.com/">HearthstoneJSON</a>. Os atalhos do meta levam ao HSGuru e ao HSReplay, sem vínculo com este projeto. Hearthstone é marca da Blizzard Entertainment; este é um projeto pessoal, sem vínculo com a Blizzard.
-    </footer>
+    <section class="s-noite secao" aria-labelledby="t-como">
+      <div class="miolo">
+        <p class="capitulo"><b>II</b><span>Como funciona</span></p>
+        <h2 id="t-como" class="revela">Quatro feitiços, <em>toda hora.</em></h2>
+        <ol class="votos">
+          <li class="voto revela"><i>i.</i><b>Vislumbrar</b><p>A cada 60 minutos, a D'arc lança o olhar sobre as notícias oficiais em pt-BR, a versão nova do HearthstoneJSON e os decks do meta, e enxerga o que mudou nas estrelas do jogo.</p></li>
+          <li class="voto revela"><i>ii.</i><b>Tecer</b><p>Carta por carta, ela separa buffs, nerfs e alteradas, e aponta os melhores decks de cada classe, no Padrão e no Wild, no mesmo fio de ouro.</p></li>
+          <li class="voto revela"><i>iii.</i><b>Encantar</b><p>Transforma cada patch e cada notícia em um resumo próprio em tópicos, conjurado pelo Gemini, sem copiar o texto oficial.</p></li>
+          <li class="voto revela"><i>iv.</i><b>Invocar</b><p>Quando sai patch ou notícia, ela chama você no Telegram, e atende aos comandos /patch, /carta, /noticias, /decks e /meta.</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <div class="estandarte marfim" aria-hidden="true"><div class="faixa" id="faixa2"></div></div>
+
+    <section class="s-profundo secao" aria-labelledby="t-brasoes">
+      <div class="miolo">
+        <p class="capitulo"><b>III</b><span>Brasões</span></p>
+        <div class="dupla revela">
+          <h2 id="t-brasoes">Escolha o seu <em>brasão.</em></h2>
+          <p class="lide">Toque numa classe, escolha Padrão ou Wild e abra os atalhos para os melhores decks do momento. Os mesmos links saem no /decks do bot.</p>
+        </div>
+        <ul class="brasoes" data-brasoes></ul>
+      </div>
+    </section>
+
+    <section class="s-marfim secao chamada" aria-labelledby="t-chamada">
+      <div class="miolo">
+        <div class="vitral revela" style="justify-self:center;width:min(100%,440px)"><img loading="lazy" decoding="async" src="img/bot-darc.webp" alt="A feiticeira cobre o rosto com o verso de uma carta de Hearthstone, de luvas negras com chamas violeta"  style="object-position:50% 22%"><span class="raio" aria-hidden="true"></span></div>
+        <div class="texto revela">
+          <p class="capitulo"><b>IV</b><span>O bot</span></p>
+          <h2 class="gigante" id="t-chamada">Chame a <em>D'arc.</em></h2>
+          <p class="lide">No Telegram, peça /patch, /carta, /noticias, /decks ou /meta e receba na hora: o resumo do patch, a notícia resumida ou os links dos melhores decks da sua classe, no Padrão e no Wild. Quando sai patch ou notícia nova, ela avisa sozinha.</p>
+          <div class="botoes">
+            <a class="botao real" href="#/">Abrir no Telegram<svg aria-hidden="true"><use href="#i-estrela"/></svg></a>
+            <a class="botao linha" href="#/">Código no GitHub</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="s-noite secao" aria-labelledby="t-faq">
+      <div class="miolo">
+        <p class="capitulo"><b>V</b><span>Perguntas</span></p>
+        <h2 id="t-faq">Perguntas <em>frequentes</em></h2>
+        <div class="perguntas">
+          <details><summary>De onde vêm os dados?<svg aria-hidden="true"><use href="#i-estrela"/></svg></summary><p>Patches e notícias vêm das notícias oficiais da Blizzard em pt-BR e das versões do HearthstoneJSON; os decks do meta, do Top 500 do hearthstone-decks.net. O monitor roda no GitHub Actions a cada 60 minutos.</p></details>
+          <details><summary>Por que o resumo não é o texto oficial?<svg aria-hidden="true"><use href="#i-estrela"/></svg></summary><p>A página é pública e não republica texto da Blizzard. O resumo é nosso, gerado por IA a partir da notícia, com link para a original.</p></details>
+          <details><summary>O que conta como buff ou nerf?<svg aria-hidden="true"><use href="#i-estrela"/></svg></summary><p>Custo menor, ou ataque e vida maiores, é buff; o contrário é nerf. Mudança só de redação vai para "revisadas" e não entra na conta (D31).</p></details>
+          <details><summary>Quem é a D'arc?<svg aria-hidden="true"><use href="#i-estrela"/></svg></summary><p>A mascote do site e do bot: uma tecelã cósmica que tem o mundo de Hearthstone como hobby. Ela costura num fio de ouro o que muda no jogo e anuncia patches, notícias e decks novos no topo de cada página.</p></details>
+        </div>
+      </div>
+    </section>
   </div>
 
-  <!-- Modelos clonados por site/js/. Cada [data-campo] recebe texto; [data-texto-carta] recebe a marcação higienizada (só <b> e <i>). -->
-  <template id="tpl-patch">
-    <li><button type="button" class="patch" aria-current="false">
-      <span class="v"><span data-campo="versao"></span><time data-campo="data"></time></span>
-      <span class="conta"><span class="b" data-campo="buffs"></span><span class="n" data-campo="nerfs"></span><span class="a" data-campo="alteradas"></span></span>
-    </button></li>
-  </template>
-
-  <template id="tpl-detalhe">
-    <article class="patch-detalhe">
-      <header>
-        <h2 class="titulo" data-campo="titulo"></h2>
-        <div class="meta"><time data-campo="data"></time><a class="link" data-campo="link" href="#" rel="noopener"><span data-campo="link-texto">Notícia oficial</span> <span aria-hidden="true">→</span></a></div>
-      </header>
-      <section class="resumo-ia" data-campo="resumo-ia" aria-labelledby="resumo-ia-titulo" hidden>
-        <h3 id="resumo-ia-titulo"><span class="selo-ia"><span aria-hidden="true">✦</span> Resumo gerado por IA</span></h3>
-        <ul class="topicos" data-campo="topicos"></ul>
-        <p class="nota-ia">Escrito por IA a partir da <a data-campo="resumo-link" href="#" rel="noopener">notícia oficial</a>; os números das cartas vêm dos dados abaixo.</p>
-      </section>
-      <p class="vazio" data-campo="sem-cartas" hidden>Lista de cartas indisponível para este patch.</p>
-      <div class="totais" data-campo="totais">
-        <div class="total b"><small>Buffs</small><b data-campo="buffs" data-contar></b></div>
-        <div class="total n"><small>Nerfs</small><b data-campo="nerfs" data-contar></b></div>
-        <div class="total a"><small>Alteradas</small><b data-campo="alteradas" data-contar></b></div>
+  <!-- ======================= PATCHES ======================= -->
+  <div class="pagina" data-pagina="patches" hidden>
+    <section class="cabeca-pagina cabeca-livro cabeca-patches s-noite">
+      <div class="livro-arte">
+        <img decoding="async" src="img/patches-darc.webp" alt="A feiticeira de cabelo dourado e vestido preto, branco e violeta puxa um fio de ouro que costura retalhos de um céu estrelado, com uma carta de Hearthstone na outra mão">
+        <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
-      <div class="grupos" data-campo="grupos"></div>
-    </article>
-  </template>
-
-  <template id="tpl-noticia-item">
-    <li><button type="button" class="patch noticia-item" aria-current="false">
-      <span class="titulo-noticia" data-campo="titulo"></span>
-      <time data-campo="data"></time>
-    </button></li>
-  </template>
-
-  <template id="tpl-noticia">
-    <article class="patch-detalhe noticia-detalhe">
-      <header>
-        <p class="tipo">Notícia</p>
-        <h2 class="titulo" data-campo="titulo"></h2>
-        <div class="meta"><time data-campo="data"></time><a class="link" data-campo="link" href="#" rel="noopener">Notícia oficial <span aria-hidden="true">→</span></a></div>
-      </header>
-      <section class="resumo-ia" data-campo="resumo-ia" aria-labelledby="resumo-noticia-titulo" hidden>
-        <h3 id="resumo-noticia-titulo"><span class="selo-ia"><span aria-hidden="true">✦</span> Resumo gerado por IA</span></h3>
-        <ul class="topicos" data-campo="topicos"></ul>
-        <p class="nota-ia">Escrito por IA a partir da <a data-campo="resumo-link" href="#" rel="noopener">notícia oficial</a>.</p>
-      </section>
-      <p class="vazio" data-campo="sem-resumo" hidden>O resumo desta notícia ainda não ficou pronto. Enquanto isso, a notícia completa está no link acima.</p>
-    </article>
-  </template>
-
-  <template id="tpl-topico">
-    <li class="topico" data-campo="texto"></li>
-  </template>
-
-  <template id="tpl-grupo">
-    <section class="grupo">
-      <h3><span class="pilula" data-campo="rotulo"></span><span data-campo="quantidade"></span></h3>
-      <ul class="cartas" data-campo="cartas"></ul>
-      <p class="vazio" data-campo="vazio" hidden>Nenhuma neste patch.</p>
+      <div class="miolo">
+        <div class="texto"><p class="sobre">Patches</p><h1>O livro dos <em>patches.</em></h1></div>
+        <p class="lide">Cada versão com o resumo em tópicos e as cartas que mudaram, com antes e depois. Verde é buff, vermelho é nerf.</p>
+      </div>
     </section>
-  </template>
-
-  <template id="tpl-carta">
-    <li class="carta">
-      <span class="mana" data-campo="custo"></span>
-      <div>
-        <div class="nome"><b data-campo="nome"></b><small data-campo="classe"></small></div>
-        <ul class="mudancas" data-campo="mudancas"></ul>
+    <section class="s-marfim secao">
+      <div class="miolo livro">
+        <ol class="indice-patches" id="indice-patches" aria-label="Versões"></ol>
+        <div class="detalhe" id="detalhe"></div>
       </div>
-    </li>
-  </template>
+    </section>
+  </div>
 
-  <template id="tpl-mudanca">
-    <li><span class="campo" data-campo="campo"></span><span class="antes" data-campo="antes"></span><span class="seta" aria-label="passou para">→</span><span class="depois" data-campo="depois"></span></li>
-  </template>
+  <!-- ======================= CARTAS ======================= -->
+  <div class="pagina" data-pagina="cartas" hidden>
+    <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-cartas-arte s-noite">
+      <div class="livro-arte">
+        <img loading="lazy" decoding="async" src="img/cartas-darc.webp" alt="A feiticeira de cabelo dourado lança cartas de Hearthstone num céu violeta, ligadas por fios de ouro">
+        <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
+      </div>
+      <div class="miolo">
+        <div class="texto"><p class="sobre">Cartas</p><h1>Cartas que <em>mudaram.</em></h1></div>
+        <p class="lide">As cartas com buff, nerf ou mudança, separadas por patch, desde abril de 2026. Toque numa para ver em 3D e o histórico dela.</p>
+      </div>
+    </section>
+    <section class="s-marfim secao">
+      <div class="miolo">
+        <div class="ferramentas">
+          <div class="filtros" role="group" aria-label="Filtrar cartas" id="filtro-cartas"></div>
+          <div class="recolher"><button type="button" class="botao linha" id="recolher-todos">Recolher todos</button></div>
+          <input class="campo" id="busca-cartas" type="search" placeholder="filtrar pelo nome" aria-label="Filtrar cartas pelo nome">
+        </div>
+        <ul class="grade-cartas" id="grade-cartas"></ul>
+        <p class="vazio" id="sem-resultados" hidden>Nenhuma carta encontrada. Tente outro nome ou outro filtro.</p>
+      </div>
+    </section>
+  </div>
 
-  <template id="tpl-mudanca-texto">
-    <li><span class="campo">texto</span><span class="texto-mudou"><span class="antes" data-texto-carta="antes"></span><span class="depois" data-texto-carta="depois"></span></span></li>
-  </template>
+  <!-- ======================= NOTÍCIAS ======================= -->
+  <div class="pagina" data-pagina="noticias" hidden>
+    <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-noticias-arte s-noite">
+      <div class="livro-arte">
+        <img loading="lazy" decoding="async" src="img/noticias-darc.webp" alt="A feiticeira sorri e estende uma carta dourada lacrada com selo violeta, num castelo flutuante cheio de caixas de correio estreladas e cartas voando">
+        <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
+      </div>
+      <div class="miolo">
+        <div class="texto"><p class="sobre">Notícias</p><h1>Notícias da <em>Taverna.</em></h1></div>
+        <p class="lide">Tudo o que a Blizzard publicou sobre Hearthstone: expansões, eventos, loja, Campos de Batalha e esports, com resumo próprio.</p>
+      </div>
+    </section>
+    <section class="s-noite secao" style="padding-top:56px">
+      <div class="miolo">
+        <div class="filtros" role="group" aria-label="Filtrar notícias" id="filtros" style="margin-top:0"></div>
+        <div class="jornal">
+          <article class="manchete" id="manchete"></article>
+          <ul class="notas" id="notas"></ul>
+        </div>
+      </div>
+    </section>
+  </div>
 
-  <template id="tpl-resultado">
-    <button type="button" class="resultado" role="option"><span data-campo="nome"></span><small data-campo="info"></small></button>
-  </template>
+  <!-- ======================= META ======================= -->
+  <div class="pagina" data-pagina="meta" hidden>
+    <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-meta-arte s-noite">
+      <div class="livro-arte">
+        <img loading="lazy" decoding="async" src="img/meta-darc.webp" alt="A feiticeira segura uma carta brilhante cercada de anéis de magia violeta e ouro">
+        <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
+      </div>
+      <div class="miolo">
+        <div class="texto"><p class="sobre">Meta</p><h1>Os brasões <em>das classes.</em></h1></div>
+        <p class="lide">Escolha a classe, depois Padrão ou Wild, e abra os atalhos para os melhores decks do momento. Os mesmos links saem no /decks do bot.</p>
+      </div>
+    </section>
+    <section class="s-profundo secao" style="padding-top:56px">
+      <div class="miolo"><ul class="brasoes" data-brasoes style="margin-top:0"></ul></div>
+    </section>
+  </div>
+</main>
 
-  <template id="tpl-ficha">
-    <article class="ficha-carta">
-      <button type="button" class="voltar" data-campo="voltar">← Voltar ao patch</button>
-      <header>
-        <h2 class="titulo" data-campo="nome"></h2>
-        <div class="meta"><span data-campo="classe"></span><span>dados da build atual</span></div>
-      </header>
-      <div class="totais" data-campo="atributos"></div>
-      <p class="texto-carta" data-texto-carta="texto"></p>
-      <section class="grupo">
-        <h3>Mudanças registradas</h3>
-        <ol class="historico" data-campo="historico"></ol>
-        <p class="vazio" data-campo="sem-historico" hidden>Nenhuma mudança desde a linha de base.</p>
-      </section>
-    </article>
-  </template>
+<footer class="rodape s-noite">
+  <div class="miolo">
+    <div class="linha-topo">
+      <nav aria-label="Rodapé"><a href="#/patches">Patches</a><a href="#/cartas">Cartas</a><a href="#/noticias">Notícias</a><a href="#/meta">Meta</a><a href="#/">GitHub</a><a href="#/">Telegram</a></nav>
+      <span>Projeto pessoal · 2026</span>
+    </div>
+    <p class="credito">Dados reais do monitor até 27/10/2026 · dados e imagens das cartas © Blizzard Entertainment, pela API de dados do Hearthstone (com apoio do HearthstoneJSON) · Hearthstone® é marca registrada da Blizzard Entertainment, Inc. · projeto de fã sem afiliação com a Blizzard, sem fins comerciais e sem anúncios</p>
+  </div>
+  <div class="assinatura" aria-hidden="true"><span>Dash'board</span><span>HS</span></div>
+</footer>
 
-  <template id="tpl-atributo">
-    <div class="total"><small data-campo="rotulo"></small><b data-campo="valor" data-contar></b></div>
-  </template>
+<dialog class="janela" id="janela-deck" aria-labelledby="deck-titulo">
+  <div class="topo"><b id="deck-titulo"></b><button class="fechar" type="button" aria-label="Fechar" data-fechar>×</button></div>
+  <div class="corpo">
+    <div class="formatos" role="group" aria-label="Formato">
+      <button type="button" data-formato="padrao" aria-pressed="true"><b>Padrão</b><small>Expansões dos últimos 2 anos</small></button>
+      <button type="button" data-formato="selvagem" aria-pressed="false"><b>Wild</b><small>Todas as cartas</small></button>
+    </div>
+    <ol class="decks" id="decks"></ol>
+    <p class="nota-fonte">No Telegram, peça <b>/decks</b> e a classe à D'arc para receber estes mesmos links, com os filtros do HSGuru: Diamante até Lenda, últimas 2 semanas e mínimo de 100 jogos.</p>
+  </div>
+</dialog>
 
-  <template id="tpl-historico">
-    <li><a class="link" data-campo="patch" href="#"></a>, <time data-campo="data"></time><ul class="mudancas" data-campo="mudancas"></ul></li>
-  </template>
+<dialog class="janela" id="janela-carta" aria-labelledby="carta-titulo">
+  <div class="topo"><b id="carta-titulo"></b><button class="fechar" type="button" aria-label="Fechar" data-fechar>×</button></div>
+  <div class="corpo carta-janela">
+    <div class="foco"><div class="carta" id="carta-grande" tabindex="0" role="button"></div></div>
+    <div style="display:grid;gap:14px">
+      <ul class="historico-carta" id="historico-carta"></ul>
+      <p class="nota-fonte">A frente e o verso da carta são arte da Blizzard Entertainment, vinda da API de dados do Hearthstone. A imagem mostra a carta como ela é hoje; os valores daquele patch estão na lista de mudanças.</p>
+    </div>
+  </div>
+</dialog>
 
-  <script type="module" src="js/app.js"></script>
+<script type="module" src="js/app.js"></script>
 </body>
 </html>

@@ -5,7 +5,7 @@ import worker from "../../bot/src/index.js";
 import { lerComando, responder } from "../../bot/src/comandos.js";
 import { criarLeitor, ErroDados } from "../../bot/src/dados.js";
 import { dividir } from "../../bot/src/formatador.js";
-import { codigoDaPagina, lerClasse, lerFeed, links, paginaDoDeck, ErroFeed } from "../../bot/src/meta.js";
+import { lerClasse, links } from "../../bot/src/meta.js";
 
 const diretorioFixtures = new URL("./dados/bot/", import.meta.url);
 const ambiente = {
@@ -81,34 +81,33 @@ test("lerComando aceita nome do bot, maiúsculas e remove espaços do argumento"
   assert.deepEqual(lerComando("texto sem comando"), { comando: "", argumento: "" });
 });
 
-test("lerClasse reconhece nomes, acentos, apelidos e o formato selvagem em qualquer posição", () => {
+test("lerClasse reconhece nomes, acentos, apelidos e o formato wild ou padrão em qualquer posição", () => {
   const classes = [
-    ["Cavaleiro da Morte", "dk", "DEATHKNIGHT", "death-knight-standard", "death-knight-wild"],
-    ["Caçador de Demônios", "dh", "DEMONHUNTER", "demon-hunter", "demon-hunter-wild-decks"],
-    ["Druida", "druida", "DRUID", "druid", "druid-wild-decks"],
-    ["Caçador", "cacador", "HUNTER", "hunter", "hunter-wild-decks"],
-    ["Mago", "maga", "MAGE", "mage", "mage-wild-decks"],
-    ["Paladino", "paladino", "PALADIN", "paladin", "paladin-wild-decks"],
-    ["Sacerdote", "sacerdote", "PRIEST", "priest", "priest-wild-decks"],
-    ["Ladino", "ladino", "ROGUE", "rogue", "rogue-wild-decks"],
-    ["Xamã", "xama", "SHAMAN", "shaman", "shaman-wild-decks"],
-    ["Bruxo", "bruxo", "WARLOCK", "warlock", "warlock-wild-decks"],
-    ["Guerreiro", "guerreiro", "WARRIOR", "warrior", "warrior-wild-decks"]
+    ["Cavaleiro da Morte", "dk", "DEATHKNIGHT"],
+    ["Caçador de Demônios", "dh", "DEMONHUNTER"],
+    ["Druida", "druida", "DRUID"],
+    ["Caçador", "cacador", "HUNTER"],
+    ["Mago", "maga", "MAGE"],
+    ["Paladino", "paladino", "PALADIN"],
+    ["Sacerdote", "sacerdote", "PRIEST"],
+    ["Ladino", "ladino", "ROGUE"],
+    ["Xamã", "xama", "SHAMAN"],
+    ["Bruxo", "bruxo", "WARLOCK"],
+    ["Guerreiro", "guerreiro", "WARRIOR"]
   ];
 
-  for (const [nome, apelido, codigo, slugPadrao, slugSelvagem] of classes) {
-    assert.equal(lerClasse(nome.toLocaleUpperCase("pt-BR")).classe, codigo);
+  for (const [nome, apelido, codigo] of classes) {
+    assert.deepEqual(lerClasse(nome.toLocaleUpperCase("pt-BR")), { classe: codigo, formato: null, desconhecida: "" });
     assert.equal(lerClasse(apelido).classe, codigo);
-    assert.deepEqual(lerClasse(`${apelido} selvagem`), { classe: codigo, formato: "selvagem", desconhecida: "" });
-    assert.deepEqual(lerClasse(`selvagem ${apelido}`), { classe: codigo, formato: "selvagem", desconhecida: "" });
-    assert.equal(links(codigo, "padrao").pagina, `https://hearthstone-decks.net/standard-decks/${slugPadrao}/`);
-    assert.equal(links(codigo, "padrao").feed, `https://hearthstone-decks.net/standard-decks/${slugPadrao}/feed/`);
-    assert.equal(links(codigo, "selvagem").pagina, `https://hearthstone-decks.net/wild-decks/${slugSelvagem}/`);
-    assert.equal(links(codigo, "selvagem").feed, `https://hearthstone-decks.net/wild-decks/${slugSelvagem}/feed/`);
+    assert.deepEqual(lerClasse(`${apelido} wild`), { classe: codigo, formato: "wild", desconhecida: "" });
+    assert.deepEqual(lerClasse(`WILD ${apelido}`), { classe: codigo, formato: "wild", desconhecida: "" });
+    assert.deepEqual(lerClasse(`${apelido} padrão`), { classe: codigo, formato: "padrao", desconhecida: "" });
+    assert.deepEqual(lerClasse(`${apelido} standard`), { classe: codigo, formato: "padrao", desconhecida: "" });
   }
 
-  assert.deepEqual(lerClasse(""), { classe: null, formato: "padrao", desconhecida: "" });
-  assert.deepEqual(lerClasse("mistério selvagem"), { classe: null, formato: "selvagem", desconhecida: "mistério" });
+  assert.deepEqual(lerClasse(""), { classe: null, formato: null, desconhecida: "" });
+  assert.deepEqual(lerClasse("mistério wild"), { classe: null, formato: "wild", desconhecida: "mistério" });
+  assert.deepEqual(lerClasse("mago selvagem"), { classe: null, formato: null, desconhecida: "mago selvagem" });
 });
 
 test("links montam destinos de classe e formato para todas as classes", () => {
@@ -116,128 +115,56 @@ test("links montam destinos de classe e formato para todas as classes", () => {
 
   for (const classe of classes) {
     const padrao = links(classe, "padrao");
-    const selvagem = links(classe, "selvagem");
-    assert.equal(padrao.hsguruDecks, `https://www.hsguru.com/decks?format=2&player_class=${classe}&rank=diamond_to_legend`);
+    const wild = links(classe, "wild");
+    assert.equal(padrao.hsguruDecks, `https://www.hsguru.com/decks?format=2&player_class=${classe}&rank=diamond_to_legend&period=past_2_weeks&min_games=100`);
     assert.equal(padrao.hsreplayDecks, `https://hsreplay.net/decks/#playerClasses=${classe}&gameType=RANKED_STANDARD`);
     assert.equal(padrao.hsguruMeta, "https://www.hsguru.com/meta?format=2");
     assert.equal(padrao.hsreplayMeta, "https://hsreplay.net/meta/#gameType=RANKED_STANDARD");
-    assert.match(padrao.pagina, /^https:\/\/hearthstone-decks\.net\/standard-decks\/.+\/$/);
-    assert.equal(padrao.feed, `${padrao.pagina}feed/`);
-    assert.equal(selvagem.hsguruDecks, `https://www.hsguru.com/decks?format=1&player_class=${classe}&rank=diamond_to_legend`);
-    assert.equal(selvagem.hsreplayDecks, `https://hsreplay.net/decks/#playerClasses=${classe}&gameType=RANKED_WILD`);
-    assert.equal(selvagem.hsguruMeta, "https://www.hsguru.com/meta?format=1");
-    assert.equal(selvagem.hsreplayMeta, "https://hsreplay.net/meta/#gameType=RANKED_WILD");
-    assert.match(selvagem.pagina, /^https:\/\/hearthstone-decks\.net\/wild-decks\/.+\/$/);
-    assert.equal(selvagem.feed, `${selvagem.pagina}feed/`);
+    assert.equal(wild.hsguruDecks, `https://www.hsguru.com/decks?format=1&player_class=${classe}&rank=diamond_to_legend&period=past_2_weeks&min_games=100`);
+    assert.equal(wild.hsreplayDecks, `https://hsreplay.net/decks/#playerClasses=${classe}&gameType=RANKED_WILD`);
+    assert.equal(wild.hsguruMeta, "https://www.hsguru.com/meta?format=1");
+    assert.equal(wild.hsreplayMeta, "https://hsreplay.net/meta/#gameType=RANKED_WILD");
+    assert.equal(Object.keys(padrao).sort().join(), "hsguruDecks,hsguruMeta,hsreplayDecks,hsreplayMeta");
   }
-
 });
 
-test("lerFeed lê campos RSS, código, data e entidades, e rejeita XML quebrado", async () => {
-  const xml = fixtures.get("feeds/classe.xml");
-  const itens = lerFeed(xml);
-  assert.equal(itens.length, 5);
-  assert.deepEqual(itens[0], {
-    titulo: "Summoner Mage #832 Legend – Sgt_Tbag & friends",
-    data: "Mon, 26 Oct 2026 02:30:00 +0000",
-    link: "https://decks.example.test/1",
-    codigo: "AAECAf0EBJbUBMreBfuyBvW6BvG/Bw=="
-  });
-  assert.equal(itens[1].codigo, "");
-  assert.equal(itens[1].titulo, 'Deck dois "Mago"');
-  assert.equal(itens[2].titulo, "Deck três <teste> 'ok'");
-  const [escapado] = lerFeed("<rss><channel><item><title>A &amp;lt;b&amp;gt; &#x2013; B</title></item></channel></rss>");
-  assert.equal(escapado.titulo, "A &lt;b&gt; – B");
-  const [especial] = lerFeed("<rss><channel><item><title> <![CDATA[Deck &#99999999; ok]]> </title><description>sem</description><content:encoded><![CDATA[<p>AAECAf0EBJbUBMreBfuyBvW6</p>]]></content:encoded></item></channel></rss>");
-  assert.equal(especial.titulo, "Deck &#99999999; ok");
-  assert.equal(especial.codigo, "AAECAf0EBJbUBMreBfuyBvW6");
-  const hostil = `<rss><channel><item>${"<description>".repeat(25000)}</item></channel></rss>`;
-  const inicio = performance.now();
-  lerFeed(hostil);
-  assert.ok(performance.now() - inicio < 200);
-  assert.throws(() => lerFeed(fixtures.get("feeds/quebrado.xml")), ErroFeed);
-  assert.throws(() => lerFeed("<channel></channel>"), ErroFeed);
+test("/decks <classe> traz HSReplay e HSGuru do Padrão e do Wild, sem rede", async () => {
+  const [resposta] = await executar("/decks mago");
+  const padrao = links("MAGE", "padrao");
+  const wild = links("MAGE", "wild");
+  assert.equal(resposta, [
+    "Hearthstone DS: decks de Mago",
+    `Padrão\nHSReplay: ${padrao.hsreplayDecks}\nHSGuru: ${padrao.hsguruDecks}`,
+    `Wild\nHSReplay: ${wild.hsreplayDecks}\nHSGuru: ${wild.hsguruDecks}`,
+    "Filtros do HSGuru: Diamante até Lenda, últimas 2 semanas, mínimo de 100 jogos.",
+    "Só um formato: /decks mago wild ou /decks mago padrão."
+  ].join("\n\n"));
+  assert.doesNotMatch(resposta, /hearthstone-decks|Código:|Top 500/);
 });
 
-test("/decks formata até cinco itens, trata classe e erros de feed", async () => {
-  const chamadas = [];
-  const leitor = async (url) => {
-    chamadas.push(url);
-    return fixtures.get("feeds/classe.xml");
-  };
-  const [resposta] = await executar("/decks mago", undefined, { lerFeed: leitor });
-  assert.equal(chamadas.length, 1);
-  assert.equal(chamadas[0], links("MAGE", "padrao").feed);
-  assert.match(resposta, /^Hearthstone DS: decks de Mago no Padrão\nTop 500 da Lenda, mais recentes primeiro/);
-  assert.match(resposta, /1\. Summoner Mage #832 Legend – Sgt_Tbag & friends\n📅 25\/10\/2026\nhttps:\/\/decks\.example\.test\/1\nCódigo: AAECAf0EBJbUBMreBfuyBvW6BvG\/Bw==/);
-  assert.match(resposta, /2\. Deck dois "Mago"\n📅 25\/10\/2026\nhttps:\/\/hearthstone-decks\.net\/deck-dois\/\n\n3\. Deck três <teste> 'ok'/);
-  assert.doesNotMatch(resposta.match(/2\. Deck dois[\s\S]*?(?=\n\n3\.)/)?.[0] ?? "", /Código:/);
-  assert.doesNotMatch(resposta, /Deck seis fora do limite/);
-  assert.match(resposta, /Fonte: decks enviados ao hearthstone-decks\.net\nEstatísticas de Mago no HSGuru: https:\/\/www\.hsguru\.com\/decks\?format=2&player_class=MAGE&rank=diamond_to_legend$/);
+test("/decks <classe> <formato> traz só o formato pedido, em qualquer ordem", async () => {
+  const [wild] = await executar("/decks dh wild");
+  const [ordemTroca] = await executar("/decks wild dh");
+  const [padrao] = await executar("/decks Caçador de Demônios padrão");
+  const dados = links("DEMONHUNTER", "wild");
+  assert.equal(wild, `Hearthstone DS: decks de Caçador de Demônios no Wild\n\nHSReplay: ${dados.hsreplayDecks}\nHSGuru: ${dados.hsguruDecks}\n\nFiltros do HSGuru: Diamante até Lenda, últimas 2 semanas, mínimo de 100 jogos.`);
+  assert.equal(ordemTroca, wild);
+  assert.match(padrao, /^Hearthstone DS: decks de Caçador de Demônios no Padrão\n\nHSReplay: https:\/\/hsreplay\.net\/decks\/#playerClasses=DEMONHUNTER&gameType=RANKED_STANDARD\nHSGuru: https:\/\/www\.hsguru\.com\/decks\?format=2&player_class=DEMONHUNTER&rank=diamond_to_legend&period=past_2_weeks&min_games=100\n\nFiltros/);
+  assert.doesNotMatch(padrao, /Wild|RANKED_WILD/);
+});
 
+test("/decks sem classe ou com classe desconhecida ensina o uso com wild", async () => {
   const [semClasse] = await executar("/decks");
   const [desconhecida] = await executar("/decks Paladino de Jade");
-  assert.match(semClasse, /^Use \/decks com uma classe/);
+  const [selvagem] = await executar("/decks mago selvagem");
+  assert.match(semClasse, /^Use \/decks com uma classe, por exemplo \/decks mago ou \/decks dh wild\./);
   assert.match(desconhecida, /^Não conheço a classe "Paladino de Jade"\.\nUse \/decks/);
-
-  const [vazio] = await executar("/decks mago", undefined, { lerFeed: async () => "<rss><channel></channel></rss>" });
-  const [xmlRuim] = await executar("/decks mago", undefined, { lerFeed: async () => fixtures.get("feeds/quebrado.xml") });
-  const [falha] = await executar("/decks mago", undefined, { lerFeed: async () => { throw new Error("rede"); } });
-  assert.match(vazio, /^Não achei decks recentes de Mago no Padrão\. Veja a página da classe:/);
-  assert.match(xmlRuim, /^Não consegui ler os decks de Mago agora\. Veja direto na página:/);
-  assert.equal(falha, xmlRuim);
-});
-
-test("codigoDaPagina tira o código do link do HSReplay e paginaDoDeck só aceita o próprio site", () => {
-  const codigo = "AAECAf0EBr2nB+SyB6TZB5HbB9jwB7v2BwzRpgfWvAeSxAeT2geU2wf79Qf89QeJ9geT9gfh9geAgQi/jAgAAA==";
-  assert.equal(codigoDaPagina(fixtures.get("paginas/deck.html")), codigo);
-  assert.equal(codigoDaPagina('<a href="https://hsreplay.net/decks/AAECAf0EBr2nB&#043;SyB6TZB5HbB9jwB7v2Bw==">x</a>'), "AAECAf0EBr2nB+SyB6TZB5HbB9jwB7v2Bw==");
-  assert.equal(codigoDaPagina('<a href="https://hsreplay.net/decks/abc123/">x</a>'), "");
-  assert.equal(codigoDaPagina('<a href="https://hsreplay.net/decks/AAE%E0%A4%A">x</a>'), "");
-  assert.equal(codigoDaPagina("<p>Copy AAECAf0EBr2nB+SyB6TZB5HbB9jwB7v2Bw==</p>"), "");
-  assert.equal(codigoDaPagina(""), "");
-
-  const hostil = "hsreplay.net/decks/".repeat(20000);
-  const inicio = performance.now();
-  assert.equal(codigoDaPagina(hostil), "");
-  assert.ok(performance.now() - inicio < 200);
-
-  assert.equal(paginaDoDeck("https://hearthstone-decks.net/deck-dois/"), "https://hearthstone-decks.net/deck-dois/");
-  assert.equal(paginaDoDeck("http://hearthstone-decks.net/deck-dois/"), "");
-  assert.equal(paginaDoDeck("https://hearthstone-decks.net.evil.example.test/x/"), "");
-  assert.equal(paginaDoDeck("https://hearthstone-decks.net:8443/x/"), "");
-  assert.equal(paginaDoDeck("https://user" + "@hearthstone-decks.net/x/"), "");
-  assert.equal(paginaDoDeck("https://www.hsguru.com/decks"), "");
-  assert.equal(paginaDoDeck("não é link"), "");
-});
-
-test("/decks abre a página dos decks sem código no feed e tolera falha de uma página", async () => {
-  const paginas = [];
-  const lerPagina = async (url) => {
-    paginas.push(url);
-
-    if (url.endsWith("/deck-tres/")) {
-      throw new Error("rede");
-    }
-
-    return url.endsWith("/deck-dois/") ? fixtures.get("paginas/deck.html") : "<html>sem código</html>";
-  };
-  const [resposta] = await executar("/decks mago", undefined, { lerFeed: async () => fixtures.get("feeds/classe.xml"), lerPagina });
-  assert.deepEqual(paginas.sort(), [
-    "https://hearthstone-decks.net/deck-cinco/",
-    "https://hearthstone-decks.net/deck-dois/",
-    "https://hearthstone-decks.net/deck-tres/"
-  ]);
-  assert.match(resposta, /1\. Summoner Mage[^\n]*\n📅 25\/10\/2026\nhttps:\/\/decks\.example\.test\/1\nCódigo: AAECAf0EBJbUBMreBfuyBvW6BvG\/Bw==\n\n2\./);
-  assert.match(resposta, /2\. Deck dois "Mago"\n📅 25\/10\/2026\nhttps:\/\/hearthstone-decks\.net\/deck-dois\/\nCódigo: AAECAf0EBr2nB\+SyB6TZB5HbB9jwB7v2BwzRpgfWvAeSxAeT2geU2wf79Qf89QeJ9geT9gfh9geAgQi\/jAgAAA==\n\n3\./);
-  assert.match(resposta, /deck-tres\/\n\n4\./);
-  assert.match(resposta, /deck-quatro\/\n\n5\./);
-  assert.match(resposta, /deck-cinco\/\n\nFonte:/);
+  assert.match(selvagem, /^Não conheço a classe "mago selvagem"\.\nUse \/decks/);
 });
 
 test("/meta monta links gerais e de classe para Padrão e Selvagem", async () => {
   const [geral] = await executar("/meta");
-  const [selvagem] = await executar("/meta selvagem");
+  const [selvagem] = await executar("/meta wild");
   const [mago] = await executar("/meta mago");
   const [invalida] = await executar("/meta druida extra");
   assert.equal(geral, [
@@ -248,10 +175,10 @@ test("/meta monta links gerais e de classe para Padrão e Selvagem", async () =>
     "",
     "Para os decks de uma classe, mande /decks <classe>, por exemplo /decks mago."
   ].join("\n"));
-  assert.match(selvagem, /Hearthstone DS: meta do Selvagem/);
+  assert.match(selvagem, /Hearthstone DS: meta do Wild/);
   assert.match(selvagem, /hsguru\.com\/meta\?format=1/);
   assert.match(selvagem, /gameType=RANKED_WILD/);
-  assert.match(mago, /Mago no HSGuru: https:\/\/www\.hsguru\.com\/decks\?format=2&player_class=MAGE&rank=diamond_to_legend\nMago no HSReplay: https:\/\/hsreplay\.net\/decks\/#playerClasses=MAGE&gameType=RANKED_STANDARD/);
+  assert.match(mago, /Mago no HSGuru: https:\/\/www\.hsguru\.com\/decks\?format=2&player_class=MAGE&rank=diamond_to_legend&period=past_2_weeks&min_games=100\nMago no HSReplay: https:\/\/hsreplay\.net\/decks\/#playerClasses=MAGE&gameType=RANKED_STANDARD/);
   assert.match(invalida, /^Não conheço a classe "druida extra"\.\n\nHearthstone DS: meta do Padrão/);
 });
 
@@ -377,7 +304,7 @@ test("/ajuda e comando desconhecido seguem os textos registrados", async () => {
   const [desconhecido] = await executar("/desconhecido");
   const [semComando] = await executar("olá");
   assert.match(ajuda, /^Hearthstone DS: comandos/);
-  assert.match(ajuda, /\/decks <classe>: decks Top 500 da Lenda/);
+  assert.match(ajuda, /\/decks <classe>: links de decks no HSReplay e no HSGuru, Padrão e Wild, ou \/decks <classe> wild/);
   assert.match(ajuda, /\/meta: links das estatísticas do meta/);
   assert.match(desconhecido, /^Não conheço esse comando\.\n\nHearthstone DS: comandos/);
   assert.equal(semComando, desconhecido);
@@ -488,18 +415,12 @@ test("webhook responde em texto puro ao chat permitido", async (context) => {
   assert.doesNotMatch(chamadas[0].opcoes.body, /token-ficticio/);
 });
 
-test("Worker transforma status 500 e feed acima de 512 KB em indisponibilidade", async (context) => {
+test("Worker responde /decks só com links, sem ler nenhum site de decks", async (context) => {
   const original = globalThis.fetch;
   const chamadas = [];
   const respostasTelegram = [];
-  let statusFeed = 500;
-  let corpoFeed = "erro";
   globalThis.fetch = async (url, opcoes) => {
-    chamadas.push({ url: String(url), opcoes });
-
-    if (String(url).startsWith("https://hearthstone-decks.net/")) {
-      return new Response(corpoFeed, { status: statusFeed });
-    }
+    chamadas.push(String(url));
 
     if (String(url).endsWith("/sendMessage")) {
       respostasTelegram.push(JSON.parse(opcoes.body));
@@ -511,57 +432,10 @@ test("Worker transforma status 500 e feed acima de 512 KB em indisponibilidade",
   context.after(() => { globalThis.fetch = original; });
 
   await worker.fetch(pedidoTelegram("/decks mago"), ambiente);
-  assert.match(respostasTelegram[0].text, /^Não consegui ler os decks de Mago agora\./);
-  assert.equal(chamadas.filter((chamada) => chamada.url.startsWith("https://hearthstone-decks.net/")).length, 1);
-  assert.equal(chamadas[0].opcoes.headers["User-Agent"], "HearthstoneDS/0.1 (monitor pessoal; github.com/Sera-DAI)");
-  assert.deepEqual(chamadas[0].opcoes.cf, { cacheTtl: 1800, cacheEverything: true });
-
-  chamadas.length = 0;
-  statusFeed = 200;
-  corpoFeed = "x".repeat(512 * 1024 + 1);
-  await worker.fetch(pedidoTelegram("/decks mago"), ambiente);
-  assert.match(respostasTelegram[1].text, /^Não consegui ler os decks de Mago agora\./);
-  assert.equal(chamadas.filter((chamada) => chamada.url.startsWith("https://hearthstone-decks.net/")).length, 1);
-});
-
-test("Worker lê o feed e as páginas dos decks com cache e recusa página acima de 1 MB", async (context) => {
-  const original = globalThis.fetch;
-  const chamadas = [];
-  const respostasTelegram = [];
-  let corpoPagina = fixtures.get("paginas/deck.html");
-  globalThis.fetch = async (url, opcoes) => {
-    chamadas.push({ url: String(url), opcoes });
-
-    if (String(url).endsWith("/feed/")) {
-      return new Response(fixtures.get("feeds/classe.xml"), { status: 200 });
-    }
-
-    if (String(url).startsWith("https://hearthstone-decks.net/")) {
-      return new Response(corpoPagina, { status: 200 });
-    }
-
-    if (String(url).endsWith("/sendMessage")) {
-      respostasTelegram.push(JSON.parse(opcoes.body));
-      return new Response(JSON.stringify({ ok: true }), { status: 200 });
-    }
-
-    throw new Error("Destino inesperado no teste.");
-  };
-  context.after(() => { globalThis.fetch = original; });
-
-  await worker.fetch(pedidoTelegram("/decks mago"), ambiente);
-  const site = chamadas.filter((chamada) => chamada.url.startsWith("https://hearthstone-decks.net/"));
-  assert.equal(site.length, 4);
-  assert.ok(site.every((chamada) => chamada.opcoes.headers["User-Agent"] === "HearthstoneDS/0.1 (monitor pessoal; github.com/Sera-DAI)"));
-  assert.ok(site.every((chamada) => chamada.opcoes.cf.cacheTtl === 1800 && chamada.opcoes.cf.cacheEverything === true));
-  assert.ok(!chamadas.some((chamada) => chamada.url.includes("evil.example.test")));
-  assert.equal((respostasTelegram[0].text.match(/Código: AAECAf0EBr2nB/g) ?? []).length, 3);
-
-  chamadas.length = 0;
-  corpoPagina = "x".repeat(1024 * 1024 + 1);
-  await worker.fetch(pedidoTelegram("/decks mago"), ambiente);
-  assert.match(respostasTelegram[1].text, /^Hearthstone DS: decks de Mago/);
-  assert.equal((respostasTelegram[1].text.match(/Código:/g) ?? []).length, 1);
+  assert.equal(chamadas.length, 1);
+  assert.ok(chamadas[0].endsWith("/sendMessage"));
+  assert.match(respostasTelegram[0].text, /^Hearthstone DS: decks de Mago\n\nPadrão\nHSReplay: https:\/\/hsreplay\.net\/decks\/#playerClasses=MAGE&gameType=RANKED_STANDARD/);
+  assert.match(respostasTelegram[0].text, /Wild\nHSReplay: .*RANKED_WILD\nHSGuru: .*format=1&player_class=MAGE/);
 });
 
 test("corpo inválido recebe 200 vazio sem resposta ao Telegram", async (context) => {
