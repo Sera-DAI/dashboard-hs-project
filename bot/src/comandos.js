@@ -19,7 +19,7 @@ import {
 } from "./formatador.js";
 import { lerClasse, links, nomeClasse } from "./meta.js";
 
-const DASHBOARD_PADRAO = "https://hearthstone-ds.pages.dev";
+const DASHBOARD_PADRAO = "https://dashboard-hs.pages.dev";
 
 export function lerComando(texto) {
   const correspondencia = String(texto ?? "").trim().match(/^\/([\p{L}\p{M}]+)(?:@[\w]+)?(?:\s+([\s\S]*))?$/u);

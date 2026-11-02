@@ -151,16 +151,16 @@ def test_limita_a_dez_chamadas_e_mantem_o_resto_da_fila(monkeypatch, tmp_path):
 def test_mensagem_de_fim_de_lote_com_itens_e_completa():
     assert formatador.historico(2, 1, 10, 3, False, historico.CORTE) == [
         "Hearthstone DS: histórico antigo\n\n3 itens gravados neste lote (2 patches e 1 notícias)\n"
-        "10 resumos por IA feitos; faltam 3.\n\nhttps://hearthstone-ds.pages.dev"
+        "10 resumos por IA feitos; faltam 3.\n\nhttps://dashboard-hs.pages.dev"
     ]
     assert formatador.historico(0, 0, 2, 0, True, historico.CORTE) == [
-        "Hearthstone DS: histórico antigo\n\nHistórico completo desde 25/04/2026.\n\nhttps://hearthstone-ds.pages.dev"
+        "Hearthstone DS: histórico antigo\n\nHistórico completo desde 25/04/2026.\n\nhttps://dashboard-hs.pages.dev"
     ]
 
 
 def test_mensagem_de_fim_de_lote_so_com_resumos_nao_tem_linha_de_itens():
     assert formatador.historico(0, 0, 4, 6, False, historico.CORTE) == [
-        "Hearthstone DS: histórico antigo\n\n4 resumos por IA feitos; faltam 6.\n\nhttps://hearthstone-ds.pages.dev"
+        "Hearthstone DS: histórico antigo\n\n4 resumos por IA feitos; faltam 6.\n\nhttps://dashboard-hs.pages.dev"
     ]
 
 

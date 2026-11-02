@@ -186,5 +186,5 @@ def historico(gravados_patches: int, gravadas_noticias: int, resumos: int, falta
     else:
         linhas.append(f"{resumos} resumos por IA feitos; faltam {faltam}.")
     linhas.append("")
-    linhas.append("https://hearthstone-ds.pages.dev")
+    linhas.append("https://dashboard-hs.pages.dev")
     return ["\n".join(linhas)]

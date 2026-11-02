@@ -10,7 +10,7 @@ import { lerClasse, links } from "../../bot/src/meta.js";
 const diretorioFixtures = new URL("./dados/bot/", import.meta.url);
 const ambiente = {
   DADOS_URL: "https://dados.example.test/dados/",
-  DASHBOARD_URL: "https://hearthstone-ds.pages.dev",
+  DASHBOARD_URL: "https://dashboard-hs.pages.dev",
   TELEGRAM_TOKEN: "token-ficticio",
   TELEGRAM_CHAT_ID: "12345",
   TELEGRAM_WEBHOOK_SECRET: "segredo-ficticio"
@@ -189,7 +189,7 @@ test("/patch mostra o mais recente com resumo, cartas e link do dashboard", asyn
   assert.match(texto, /Resumo gerado por IA\n\n⚔️ O Leeroy ficou mais barato\./);
   assert.match(texto, /Buffs \(1\)\n• Leeroy Jenkins: custo 5 → 4/);
   assert.doesNotMatch(texto, /Texto revisado|Poção Volátil/);
-  assert.match(texto, /Ver no dashboard: https:\/\/hearthstone-ds\.pages\.dev\/#patch\/patches\/36\.6\.json$/);
+  assert.match(texto, /Ver no dashboard: https:\/\/dashboard-hs\.pages\.dev\/#patch\/patches\/36\.6\.json$/);
 });
 
 test("/patch aceita versão sem diferenciar maiúsculas e fallback de notícia e resumo", async () => {
@@ -242,7 +242,7 @@ test("/carta mostra só a versão atual do Padrão ou Selvagem e lê só o índi
   const [leeroy] = await executar("/carta leeroy jenkins", criarFetchDados(registro));
   const [bola] = await executar("/carta bola", criarFetchDados());
   const lidos = registro.map((pedido) => pedido.url.replace(ambiente.DADOS_URL, ""));
-  assert.match(leeroy, /Ver no dashboard: https:\/\/hearthstone-ds\.pages\.dev\/#carta\/69501$/);
+  assert.match(leeroy, /Ver no dashboard: https:\/\/dashboard-hs\.pages\.dev\/#carta\/69501$/);
   assert.doesNotMatch(leeroy, /Núcleo|Clássico/);
   assert.ok(lidos.includes("busca.json"));
   assert.ok(lidos.includes("cartas/l.json"));
@@ -255,7 +255,7 @@ test("/carta mostra só a versão atual do Padrão ou Selvagem e lê só o índi
     "Mudanças nos patches gravados",
     "• Patch 36.6 (26/10/2026), nerf: custo 3 → 4",
     "",
-    "Ver no dashboard: https://hearthstone-ds.pages.dev/#carta/703"
+    "Ver no dashboard: https://dashboard-hs.pages.dev/#carta/703"
   ].join("\n"));
 });
 
@@ -271,7 +271,7 @@ test("/historico usa singular e identifica patch com cartas indisponíveis", asy
   assert.match(texto, /• 36\.6 \(26\/10\/2026\): 1 buff, 1 nerf, 0 alteradas\n/);
   assert.match(texto, /• 36\.5 \(20\/10\/2026\): 0 buffs, 1 nerf, 0 alteradas/);
   assert.match(texto, /• 36\.4 \(10\/10\/2026\): lista de cartas indisponível/);
-  assert.match(texto, /Use \/patch <versão> para ver um deles\.\nhttps:\/\/hearthstone-ds\.pages\.dev$/);
+  assert.match(texto, /Use \/patch <versão> para ver um deles\.\nhttps:\/\/dashboard-hs\.pages\.dev$/);
 });
 
 test("/noticias lista, abre por número e trata número fora da lista", async () => {
