@@ -25,7 +25,7 @@ def test_textos_exatos():
         "Hearthstone DS: cartas alteradas no patch 36.6\n\nNenhuma carta colecionável mudou."
     ]
     assert formatador.sem_portugues(dado) == [
-        "Hearthstone DS: saiu o patch 36.6 (notícia em português ainda não publicada)\n\n36.6 Patch Notes\nhttps://exemplo.invalid/en\n\nNenhuma carta colecionável mudou.\n\nQuando a notícia em português sair, mando o resumo."
+        "Hearthstone DS: saiu o patch 36.6 (notícia em português ainda não publicada)\n\n36.6 Patch Notes\nhttps://exemplo.invalid/en\n\nNenhuma carta colecionável mudou.\n\nQuando a notícia em português sair, aviso."
     ]
     assert formatador.falha("blizzard", "JSON inválido") == [
         "Hearthstone DS: a coleta de notícias da Blizzard falhou\nMotivo: JSON inválido\nNada foi gravado. Se continuar falhando, aviso de novo em 24 horas."
@@ -93,29 +93,12 @@ def test_resumo_aparece_nas_mensagens_de_patch_e_atrasado():
     assert formatador.resumo_atrasado(dado)[0].endswith("https://exemplo.invalid/pt")
 
 
-def test_mensagem_de_teste_e_falha_seguem_contrato():
-    noticia = {"titulo": "Notas do patch 36.6", "link": "https://exemplo.invalid/pt"}
-    assert formatador.resumo_teste(noticia, ["Um.", "Dois.", "Três."]) == [
-        "Hearthstone DS: teste do resumo por IA\n\nNotas do patch 36.6\nhttps://exemplo.invalid/pt\n\n"
-        "Resumo gerado por IA\n\nUm.\n\nDois.\n\nTrês."
-    ]
-    assert formatador.resumo_teste_falhou("resposta inválida") == [
-        "Hearthstone DS: o teste do resumo por IA falhou\nMotivo: resposta inválida"
-    ]
-
-
-def test_noticia_nova_com_e_sem_resumo():
+def test_noticia_nova_sai_sem_resumo():
+    # D54: o aviso sai logo; o resumo vem depois, pelo resumo manual (mensagem de resumo_noticia).
     noticia = {"titulo": "Novidades fictícias", "link": "https://exemplo.invalid/noticia", "resumo": "Resumo oficial."}
-    resumo = {"topicos": ["🛒 Loja: chegam itens novos.", "🎁 Presente: há uma recompensa.", "🐛 Correções: bugs foram corrigidos."]}
-    mensagem = formatador.noticia_nova(noticia, resumo)[0]
-    assert mensagem == (
-        "Hearthstone DS: notícia nova\n\nNovidades fictícias\nhttps://exemplo.invalid/noticia"
-        "\n\nResumo oficial.\n\nResumo gerado por IA\n\n"
-        "🛒 Loja: chegam itens novos.\n\n🎁 Presente: há uma recompensa.\n\n🐛 Correções: bugs foram corrigidos."
-    )
-    sem_resumo = formatador.noticia_nova(noticia, None)[0]
-    assert sem_resumo.endswith("Resumo oficial.")
-    assert "Resumo gerado por IA" not in sem_resumo
+    assert formatador.noticia_nova(noticia) == [
+        "Hearthstone DS: notícia nova\n\nNovidades fictícias\nhttps://exemplo.invalid/noticia\n\nResumo oficial."
+    ]
 
 
 def test_resumo_atrasado_de_noticia_segue_mensagem_9():

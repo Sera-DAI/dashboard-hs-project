@@ -5,13 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Patches, notícias e decks do meta de Hearthstone, lidos antes de você entrar na Taverna. Projeto pessoal e de fã, sem fins comerciais.">
 <meta name="color-scheme" content="dark light">
+<script src="js/rota.js"></script>
 <title>Dash'board HS</title>
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
 <link rel="icon" type="image/png" href="img/favicon-32.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="preload" as="fetch" href="dados/cartas.json" crossorigin>
 <link rel="preload" as="fetch" href="dados/indice.json" crossorigin>
+<link rel="preload" as="fetch" href="dados/noticias.json" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap" media="print" onload="this.media='all'">
 <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,400;1,6..72,500&family=Cormorant+Garamond:ital,wght@1,500;1,600&family=JetBrains+Mono:wght@400;500;700&display=swap"></noscript>
 <link rel="stylesheet" href="css/darc.css">
@@ -66,7 +67,7 @@
   <div class="pagina" data-pagina="inicio">
     <section class="hero hero-deck s-marfim" id="cena" aria-labelledby="t-hero">
       <div class="deck-arte">
-        <img fetchpriority="high" decoding="async" src="img/inicio-darc.webp" alt="A feiticeira do Dash'board HS, de cabelo dourado e vestido preto, branco e violeta, mostra um leque de cartas enquanto fitas de magia violeta e estrelas douradas giram à sua volta">
+        <img loading="lazy" fetchpriority="high" decoding="async" width="1600" height="2400" src="img/inicio-darc.webp" srcset="img/inicio-darc-640.webp 640w, img/inicio-darc-1000.webp 1000w, img/inicio-darc.webp 1600w" sizes="(max-width: 960px) 80vw, 650px" alt="A feiticeira do Dash'board HS, de cabelo dourado e vestido preto, branco e violeta, mostra um leque de cartas enquanto fitas de magia violeta e estrelas douradas giram à sua volta">
         <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
       <svg class="brilho-estrela e1" aria-hidden="true"><use href="#i-estrela"/></svg>
@@ -128,7 +129,7 @@
 
     <section class="s-marfim secao chamada" aria-labelledby="t-chamada">
       <div class="miolo">
-        <div class="vitral revela" style="justify-self:center;width:min(100%,440px)"><img loading="lazy" decoding="async" src="img/bot-darc.webp" alt="A feiticeira cobre o rosto com o verso de uma carta de Hearthstone, de luvas negras com chamas violeta"  style="object-position:50% 22%"><span class="raio" aria-hidden="true"></span></div>
+        <div class="vitral revela" style="justify-self:center;width:min(100%,440px)"><img loading="lazy" decoding="async" width="1400" height="1400" src="img/bot-darc.webp" srcset="img/bot-darc-600.webp 600w, img/bot-darc.webp 1400w" sizes="(max-width: 480px) 90vw, 440px" alt="A feiticeira cobre o rosto com o verso de uma carta de Hearthstone, de luvas negras com chamas violeta"  style="object-position:50% 22%"><span class="raio" aria-hidden="true"></span></div>
         <div class="texto revela">
           <p class="capitulo"><b>IV</b><span>O bot</span></p>
           <h2 class="gigante" id="t-chamada">Chame a <em>D'arc.</em></h2>
@@ -159,7 +160,7 @@
   <div class="pagina" data-pagina="patches" hidden>
     <section class="cabeca-pagina cabeca-livro cabeca-patches s-noite">
       <div class="livro-arte">
-        <img decoding="async" src="img/patches-darc.webp" alt="A feiticeira de cabelo dourado e vestido preto, branco e violeta puxa um fio de ouro que costura retalhos de um céu estrelado, com uma carta de Hearthstone na outra mão">
+        <img loading="lazy" decoding="async" width="2880" height="960" src="img/patches-darc.webp" srcset="img/patches-darc-1200.webp 1200w, img/patches-darc-1800.webp 1800w, img/patches-darc.webp 2880w" sizes="(max-width: 760px) 640px, 100vw" alt="A feiticeira de cabelo dourado e vestido preto, branco e violeta puxa um fio de ouro que costura retalhos de um céu estrelado, com uma carta de Hearthstone na outra mão">
         <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
       <div class="miolo">
@@ -179,7 +180,7 @@
   <div class="pagina" data-pagina="cartas" hidden>
     <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-cartas-arte s-noite">
       <div class="livro-arte">
-        <img loading="lazy" decoding="async" src="img/cartas-darc.webp" alt="A feiticeira de cabelo dourado lança cartas de Hearthstone num céu violeta, ligadas por fios de ouro">
+        <img loading="lazy" decoding="async" width="2400" height="800" src="img/cartas-darc.webp" srcset="img/cartas-darc-1200.webp 1200w, img/cartas-darc-1800.webp 1800w, img/cartas-darc.webp 2400w" sizes="(max-width: 760px) 640px, 100vw" alt="A feiticeira de cabelo dourado lança cartas de Hearthstone num céu violeta, ligadas por fios de ouro">
         <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
       <div class="miolo">
@@ -204,7 +205,7 @@
   <div class="pagina" data-pagina="noticias" hidden>
     <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-noticias-arte s-noite">
       <div class="livro-arte">
-        <img loading="lazy" decoding="async" src="img/noticias-darc.webp" alt="A feiticeira sorri e estende uma carta dourada lacrada com selo violeta, num castelo flutuante cheio de caixas de correio estreladas e cartas voando">
+        <img loading="lazy" decoding="async" width="2400" height="800" src="img/noticias-darc.webp" srcset="img/noticias-darc-1200.webp 1200w, img/noticias-darc-1800.webp 1800w, img/noticias-darc.webp 2400w" sizes="(max-width: 760px) 640px, 100vw" alt="A feiticeira sorri e estende uma carta dourada lacrada com selo violeta, num castelo flutuante cheio de caixas de correio estreladas e cartas voando">
         <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
       <div class="miolo">
@@ -227,7 +228,7 @@
   <div class="pagina" data-pagina="meta" hidden>
     <section class="cabeca-pagina cabeca-livro cabeca-patches cabeca-meta-arte s-noite">
       <div class="livro-arte">
-        <img loading="lazy" decoding="async" src="img/meta-darc.webp" alt="A feiticeira segura uma carta brilhante cercada de anéis de magia violeta e ouro">
+        <img loading="lazy" decoding="async" width="2400" height="800" src="img/meta-darc.webp" srcset="img/meta-darc-1200.webp 1200w, img/meta-darc-1800.webp 1800w, img/meta-darc.webp 2400w" sizes="(max-width: 760px) 640px, 100vw" alt="A feiticeira segura uma carta brilhante cercada de anéis de magia violeta e ouro">
         <p class="fala" aria-live="polite"><small>D'arc diz</small><span data-fala></span><span class="cursor" aria-hidden="true"></span></p>
       </div>
       <div class="miolo">

@@ -1,6 +1,6 @@
 import { $, $$, elemento, botao, icone, link, dataBR, dataElemento, marcar, CLASSES } from "./elementos.js";
 import { nomeClasse, GRUPOS_COMPLETOS, FORMATOS, secoesDoPatch, rotuloDoGrupo, nomeDoGrupo, buscar, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "./logica.js";
-import { carregarDados } from "./dados.js";
+import { carregarBase, carregarCatalogo, combinarDados } from "./dados.js";
 import { definirImagens, desenharCarta, iniciarCarta, atualizarCarta, linhasMudanca } from "./cartas.js";
 import { iniciarEfeitos } from "./efeitos.js";
 import { montarBrasoes } from "./meta.js";
@@ -8,6 +8,9 @@ import { montarBrasoes } from "./meta.js";
 const efeitos = iniciarEfeitos();
 const janelaCarta = $("#janela-carta");
 let dados;
+let base;
+let catalogo;
+let catalogoPendente;
 let rotaAtual = "";
 let grupoAtivo = "todas";
 let cartaAberta;
@@ -19,22 +22,64 @@ window.addEventListener("hashchange", navegar);
 navegar();
 iniciar();
 
+// O catálogo de cartas (mais de 500 KB com as imagens oficiais) só é pedido quando a rota precisa de uma carta (D50).
+function rotaPrecisaCatalogo(rota) {
+  return rota.tipo === "patches" || rota.tipo === "patch" || rota.tipo === "cartas" || rota.tipo === "carta";
+}
+
+function garantirCatalogo() {
+  catalogoPendente ??= carregarCatalogo().then((pronto) => {
+    catalogo = pronto;
+    definirImagens(pronto.imagens);
+    if (base) {
+      const falas = dados?.falas;
+      dados = combinarDados(base, catalogo);
+      dados.falas = falas;
+    }
+  }).catch((erro) => {
+    catalogoPendente = undefined;
+    throw erro;
+  });
+  return catalogoPendente;
+}
+
 async function iniciar() {
   document.body.dataset.estado = "carregando";
   try {
-    dados = await carregarDados();
-    definirImagens(dados.imagens);
+    if (rotaPrecisaCatalogo(lerRota(window.location.hash))) {
+      garantirCatalogo().catch(() => {});
+    }
+    base = await carregarBase();
+    dados = combinarDados(base, catalogo);
+    // Só a página aberta é montada na hora; as outras esperam o primeiro acesso (D50).
     montarInicio();
-    montarIndice();
-    montarCartas();
-    montarNoticias();
-    montarBrasoes(efeitos);
     configurarBusca();
     document.body.dataset.estado = "pronto";
     navegar();
   } catch (erro) {
     document.body.dataset.estado = "erro";
     console.error("Falha ao carregar o dashboard", erro);
+  }
+}
+
+// Monta uma vez, e só quando a página é aberta: o catálogo de cartas da grade e as listas pesam no celular.
+const montadas = new Set();
+function montarUma(chave, montar) {
+  if (!montadas.has(chave)) {
+    montadas.add(chave);
+    montar();
+  }
+}
+
+function garantirPagina(pagina) {
+  if (pagina === "inicio" || pagina === "meta") {
+    montarUma("brasoes", () => montarBrasoes(efeitos));
+  } else if (pagina === "patches") {
+    montarUma("indice", montarIndice);
+  } else if (pagina === "cartas") {
+    montarUma("cartas", montarCartas);
+  } else if (pagina === "noticias") {
+    montarUma("noticias", montarNoticias);
   }
 }
 
@@ -112,7 +157,11 @@ function montarIndice() {
   }));
 }
 
+let geracaoPatch = 0;
+
 function abrirPatch(versao) {
+  geracaoPatch += 1;
+  const minha = geracaoPatch;
   const patch = dados.patches.find((item) => item.versao === versao)
     ?? dados.patches.find((item) => item.cartas.length) ?? dados.patches[0];
   const detalhe = $("#detalhe");
@@ -149,7 +198,14 @@ function abrirPatch(versao) {
     detalhe.append(elemento("p", "vazio", "Nenhuma carta mudou de custo, ataque, vida ou texto nesta versão."));
   } else {
     // D46: Padrão e Livre em partes separadas; os ids da primeira mesa seguem únicos na página.
-    secoesDoPatch(patch).forEach((secao, indice) => montarSecao(detalhe, patch, secao, indice === 0));
+    // A primeira seção entra na hora; as outras ficam para a tarefa seguinte, fora da primeira tela (D50).
+    const [primeira, ...demais] = secoesDoPatch(patch);
+    montarSecao(detalhe, patch, primeira, true);
+    demais.forEach((secao) => setTimeout(() => {
+      if (minha === geracaoPatch) {
+        efeitos.contar(montarSecao(detalhe, patch, secao, false));
+      }
+    }, 0));
   }
   efeitos.observarMarcas(detalhe);
   efeitos.contar(detalhe);
@@ -175,6 +231,7 @@ function montarSecao(raiz, patch, secao, primeira) {
     bloco.append(elemento("p", "vazio", "Nenhuma alteração relevante para o " + secao.rotulo + " neste patch."));
   }
   raiz.append(bloco);
+  return bloco;
 }
 
 function montarMesa(raiz, cartas, comIds = true) {
@@ -255,6 +312,50 @@ function montarSegmento(aoTrocar) {
   return segmento;
 }
 
+const LOTE_CARTAS = 6;
+const filaCartas = [];
+let rodandoFila = 0;
+
+function itemDaCarta(carta) {
+  const item = elemento("li");
+  item.dataset.nome = carta.nome;
+  item.dataset.grupo = carta.grupo;
+  const abrir = botao();
+  abrir.setAttribute("aria-label", carta.nome);
+  const desenho = elemento("div", "carta");
+  // Na grade a carta tem uns 170 px: a imagem de 256 basta, mesmo em tela de alta densidade.
+  desenharCarta(desenho, carta, "depois", 1);
+  const rotulo = elemento("span", "rotulo");
+  const formato = FORMATOS.find(([chave]) => chave === carta.formato);
+  rotulo.append(
+    elemento("b", "t-" + carta.grupo, rotuloDoGrupo(carta.grupo)),
+    elemento("span", "", nomeClasse(carta.classe) + (formato ? " · " + formato[1] : ""))
+  );
+  abrir.append(desenho, rotulo);
+  abrir.addEventListener("click", () => abrirCarta(carta));
+  item.carta = carta;
+  item.append(abrir);
+  return item;
+}
+
+// Um lote por tarefa deixa o navegador responder entre eles; o filtro e a busca esvaziam a fila de uma vez.
+function esvaziarFilaCartas() {
+  clearTimeout(rodandoFila);
+  rodandoFila = 0;
+  while (filaCartas.length) {
+    filaCartas.shift()();
+  }
+}
+
+function rodarFilaCartas() {
+  rodandoFila = 0;
+  const proximo = filaCartas.shift();
+  if (proximo) {
+    proximo();
+    rodandoFila = setTimeout(rodarFilaCartas, 0);
+  }
+}
+
 function montarCartas() {
   const antigas = $("#grade-cartas");
   const grade = elemento("div");
@@ -289,26 +390,10 @@ function montarCartas() {
     seta.setAttribute("aria-hidden", "true");
     resumo.append(titulo, data, ancora, seta);
     const lista = elemento("ul", "grade-cartas");
-    for (const carta of patch.cartas) {
-      const item = elemento("li");
-      item.dataset.nome = carta.nome;
-      item.dataset.grupo = carta.grupo;
-      const abrir = botao();
-      abrir.setAttribute("aria-label", carta.nome);
-      const desenho = elemento("div", "carta");
-      // Na grade a carta tem uns 170 px: a imagem de 256 basta, mesmo em tela de alta densidade.
-      desenharCarta(desenho, carta, "depois", 1);
-      const rotulo = elemento("span", "rotulo");
-      const formato = FORMATOS.find(([chave]) => chave === carta.formato);
-      rotulo.append(
-        elemento("b", "t-" + carta.grupo, rotuloDoGrupo(carta.grupo)),
-        elemento("span", "", nomeClasse(carta.classe) + (formato ? " · " + formato[1] : ""))
-      );
-      abrir.append(desenho, rotulo);
-      abrir.addEventListener("click", () => abrirCarta(carta));
-      item.carta = carta;
-      item.append(abrir);
-      lista.append(item);
+    // As cartas entram em lotes pequenos (D50): 140 desenhos de uma vez travavam o celular por segundos.
+    for (let inicio = 0; inicio < patch.cartas.length; inicio += LOTE_CARTAS) {
+      const lote = patch.cartas.slice(inicio, inicio + LOTE_CARTAS);
+      filaCartas.push(() => lista.append(...lote.map(itemDaCarta)));
     }
     grupo.append(resumo, lista);
     grupo.addEventListener("toggle", sincronizarRecolher);
@@ -324,6 +409,7 @@ function montarCartas() {
     grupos.forEach((grupo) => efeitos.alternarGrupo(grupo, abrir, sincronizarRecolher));
   });
   $("#busca-cartas").addEventListener("input", filtrarCartas);
+  rodarFilaCartas();
 }
 
 function sincronizarRecolher() {
@@ -331,6 +417,8 @@ function sincronizarRecolher() {
 }
 
 function filtrarCartas() {
+  garantirPagina("cartas");
+  esvaziarFilaCartas();
   $$("#grade-cartas .grade-cartas > li").forEach((item) => {
     item.hidden = !filtrarCarta(item.carta, $("#busca-cartas").value, grupoAtivo);
   });
@@ -376,12 +464,19 @@ function configurarDialogos() {
 }
 
 function configurarBusca() {
-  $("#busca").addEventListener("keydown", (evento) => {
+  $("#busca").addEventListener("keydown", async (evento) => {
     if (evento.key !== "Enter") {
       return;
     }
     evento.preventDefault();
     const consulta = evento.target.value.trim();
+    try {
+      await garantirCatalogo();
+    } catch (erro) {
+      document.body.dataset.estado = "erro";
+      console.error("Falha ao carregar o catálogo de cartas", erro);
+      return;
+    }
     // A busca global mantém a D32: catálogo atual, deduplicado, Padrão/Wild.
     const resultados = buscar(dados.cartas, consulta, 1);
     if (resultados.length) {
@@ -499,6 +594,18 @@ function navegar() {
   }
   const mudou = pagina !== rotaAtual;
   rotaAtual = pagina;
+  // Patches, cartas e a janela de uma carta esperam o catálogo; a página abre na hora e o conteúdo entra quando ele chega.
+  const semCatalogo = Boolean(dados) && rotaPrecisaCatalogo(rota) && !catalogo;
+  if (semCatalogo) {
+    document.body.dataset.estado = "carregando";
+    garantirCatalogo().then(() => {
+      document.body.dataset.estado = "pronto";
+      navegar();
+    }, (erro) => {
+      document.body.dataset.estado = "erro";
+      console.error("Falha ao carregar o catálogo de cartas", erro);
+    });
+  }
   $$(".pagina").forEach((no) => {
     const ativa = no.dataset.pagina === pagina;
     no.hidden = !ativa;
@@ -508,6 +615,8 @@ function navegar() {
       no.classList.add("chegou");
     }
   });
+  // As páginas já estão marcadas com hidden; a marca de js/rota.js (que escondia o início antes do JS) não faz mais falta.
+  delete document.documentElement.dataset.rota;
   $$(".links a, .menu-movel a").forEach((no) => {
     const alvo = lerRota(no.getAttribute("href")).tipo;
     if (alvo === pagina) {
@@ -516,7 +625,10 @@ function navegar() {
       no.removeAttribute("aria-current");
     }
   });
-  if (dados && pagina === "patches") {
+  if (dados && !semCatalogo) {
+    garantirPagina(pagina);
+  }
+  if (dados && !semCatalogo && pagina === "patches") {
     abrirPatch(versao);
   }
   if (mudou) {
@@ -531,7 +643,7 @@ function navegar() {
   }
   if (dados) {
     efeitos.rodarFalas(pagina, dados.falas[pagina] ?? []);
-    if (rota.tipo === "carta" && dados.cartas[rota.dbfId]) {
+    if (rota.tipo === "carta" && !semCatalogo && dados.cartas[rota.dbfId]) {
       const carta = { ...dados.cartas[rota.dbfId], dbfId: rota.dbfId };
       abrirCarta({ ...carta, antes: carta, depois: carta, mudancas: [] });
     }

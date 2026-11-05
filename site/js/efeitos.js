@@ -249,7 +249,8 @@ export function iniciarEfeitos(documento = document, janela = window) {
       }
       largura = caixa.width;
       altura = caixa.height;
-      const dpr = Math.min(janela.devicePixelRatio || 1, 2);
+      // Sem movimento as estrelas ficam paradas: pontos de 1 px não pedem densidade dupla, e o canvas fica até 4 vezes menor.
+      const dpr = decorativo() ? Math.min(janela.devicePixelRatio || 1, 2) : 1;
       canvas.width = Math.round(largura * dpr);
       canvas.height = Math.round(altura * dpr);
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -275,21 +276,31 @@ export function iniciarEfeitos(documento = document, janela = window) {
       mx = -999;
       my = -999;
     });
+    // O céu só é montado quando a seção chega perto da tela (D50): as de baixo não gastam canvas na abertura.
+    const montarSePerto = () => {
+      if (visivel || largura) {
+        montar();
+      }
+    };
     if (janela.ResizeObserver) {
-      new janela.ResizeObserver(montar).observe(host);
+      new janela.ResizeObserver(montarSePerto).observe(host);
     } else {
-      janela.addEventListener("resize", montar);
+      janela.addEventListener("resize", montarSePerto);
     }
     if (janela.IntersectionObserver) {
       new janela.IntersectionObserver(([entrada]) => {
         visivel = entrada.isIntersecting;
-        retomar();
-      }).observe(host);
+        if (visivel && !largura) {
+          montar();
+        } else {
+          retomar();
+        }
+      }, { rootMargin: "300px 0px" }).observe(host);
     } else {
       visivel = true;
+      montar();
     }
     animacoes.add(retomar);
-    montar();
   }
 
   $$(".secao.s-noite, .secao.s-profundo, .secao.s-marfim").forEach((host) => ceu(host, host.classList.contains("s-marfim")));

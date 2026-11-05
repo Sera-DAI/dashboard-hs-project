@@ -248,14 +248,16 @@ export function rotaVersao(versao) {
 // O diff só guarda campos alterados. Desfazemos TODOS os diffs, inclusive
 // revisadas, para reconstruir cada data sem emprestar números da build atual.
 export function prepararPatches(patches, cartas = {}) {
-  const estados = new Map(Object.entries(cartas).map(([id, carta]) => [String(id), { ...carta }]));
+  // O catálogo tem milhares de cartas e um patch mexe em poucas: o estado de cada carta só é copiado quando ela aparece.
+  const estados = new Map();
+  const estadoDe = (id, carta) => (estados.has(id) ? estados.get(id) : (cartas[id] ? { ...cartas[id] } : carta));
   return [...patches].sort((a, b) => String(b.data).localeCompare(String(a.data))).map((patch) => {
     const visiveis = [];
     for (const grupo of GRUPOS_COMPLETOS.map(([chave]) => chave)) {
       for (const carta of patch.cartas?.[grupo] ?? []) {
         const id = String(carta.dbfId);
         const atual = cartas[id] ?? {};
-        const depois = { ...(estados.get(id) ?? carta) };
+        const depois = { ...estadoDe(id, carta) };
         for (const mudanca of carta.mudancas ?? []) {
           if (ATRIBUTOS.includes(mudanca.campo)) {
             depois[mudanca.campo] = mudanca.depois;

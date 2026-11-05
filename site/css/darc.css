@@ -925,3 +925,21 @@ body[data-estado="erro"] .aviso-estado p { background: #4c1d1d; box-shadow: 0 8p
 .deck-caixa:hover::after, .deck-caixa:focus-visible::after { clip-path: inset(0); }
 .deck-caixa:focus-visible { outline: 2px solid var(--ouro); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .deck-caixa::before, .deck-caixa::after { transition: none; } .brasao:hover img { transform: none; } }
+
+/* Desempenho no celular (D50): o filtro de ruído SVG (feTurbulence) do título é redesenhado na CPU e custava cerca de 400 ms de bloqueio com a CPU lenta; no celular o título fica liso */
+@media (max-width: 960px), (pointer: coarse) {
+  .linha-marca, .hero-deck .linha-marca, .hero-arte .palavra span:nth-child(1) { filter: none; }
+}
+
+/* Antes do JS assumir as páginas, js/rota.js marca a rota em <html> (D50): o início não é pedido nem pintado quando o link abre outra página, e essa página já aparece, com a mesma animação de entrada de .pagina.chegou, para a arte não esperar o JS. */
+html[data-rota]:not([data-rota="inicio"]) .pagina[data-pagina="inicio"] { display: none; }
+html[data-rota="patches"] .pagina[data-pagina="patches"], html[data-rota="cartas"] .pagina[data-pagina="cartas"], html[data-rota="noticias"] .pagina[data-pagina="noticias"], html[data-rota="meta"] .pagina[data-pagina="meta"] { display: block; animation: pagina .8s var(--fluida) both, costura-revela .95s var(--fluida) backwards; }
+@media (hover: none), (pointer: coarse) {
+  html[data-rota="patches"] .pagina[data-pagina="patches"], html[data-rota="cartas"] .pagina[data-pagina="cartas"], html[data-rota="noticias"] .pagina[data-pagina="noticias"], html[data-rota="meta"] .pagina[data-pagina="meta"] { animation: pagina-toque .5s ease-out both, costura-revela .95s var(--fluida) backwards; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html[data-rota="patches"] .pagina[data-pagina="patches"], html[data-rota="cartas"] .pagina[data-pagina="cartas"], html[data-rota="noticias"] .pagina[data-pagina="noticias"], html[data-rota="meta"] .pagina[data-pagina="meta"] { animation: none; }
+}
+
+/* Enquanto os dados não chegam o conteúdo é curto e o rodapé subia para a primeira tela; reservar a altura evita o salto quando a página enche (D50) */
+body:not([data-estado="pronto"]) #conteudo-principal { min-height: 100svh; }

@@ -121,7 +121,7 @@ def sem_portugues(patch: dict) -> list[str]:
     partes = [f"Hearthstone DS: saiu o patch {versao} (notícia em português ainda não publicada)", referencia]
     if _bloco_resumo(patch):
         partes.append(_bloco_resumo(patch))
-    partes.extend([_bloco(patch["cartas"]), "Quando a notícia em português sair, mando o resumo."])
+    partes.extend([_bloco(patch["cartas"]), "Quando a notícia em português sair, aviso."])
     texto = "\n\n".join(partes)
     return mensagens(texto, versao)
 
@@ -153,28 +153,12 @@ def resumo_atrasado(patch: dict) -> list[str]:
     return mensagens(texto, versao)
 
 
-def resumo_teste(noticia: dict, topicos: list[str]) -> list[str]:
-    texto = (
-        "Hearthstone DS: teste do resumo por IA\n\n"
-        f"{noticia['titulo']}\n{noticia['link']}\n\n"
-        "Resumo gerado por IA\n\n" + "\n\n".join(topicos)
-    )
-    return mensagens(texto, "teste")
-
-
-def resumo_teste_falhou(motivo: str) -> list[str]:
-    return [f"Hearthstone DS: o teste do resumo por IA falhou\nMotivo: {motivo}"]
-
-
-def noticia_nova(noticia: dict, resumo_ia: dict | None) -> list[str]:
+def noticia_nova(noticia: dict) -> list[str]:
     partes = [
         "Hearthstone DS: notícia nova",
         f"{noticia['titulo']}\n{noticia['link']}",
         noticia.get("resumo", ""),
     ]
-    bloco = _bloco_resumo({"resumo_ia": resumo_ia})
-    if bloco:
-        partes.append(bloco)
     return mensagens("\n\n".join(parte for parte in partes if parte), "notícia")
 
 
@@ -194,18 +178,3 @@ def falha(fonte: str, motivo: str) -> list[str]:
         f"Motivo: {motivo}\n"
         "Nada foi gravado. Se continuar falhando, aviso de novo em 24 horas."
     ]
-
-
-def historico(gravados_patches: int, gravadas_noticias: int, resumos: int, faltam: int, completo: bool, corte: str) -> list[str]:
-    total = gravados_patches + gravadas_noticias
-    linhas = ["Hearthstone DS: histórico antigo", ""]
-    if total:
-        linhas.append(f"{total} itens gravados neste lote ({gravados_patches} patches e {gravadas_noticias} notícias)")
-    if completo:
-        data = date.fromisoformat(corte).strftime("%d/%m/%Y")
-        linhas.append(f"Histórico completo desde {data}.")
-    else:
-        linhas.append(f"{resumos} resumos por IA feitos; faltam {faltam}.")
-    linhas.append("")
-    linhas.append("https://dashboard-hs.pages.dev")
-    return ["\n".join(linhas)]
