@@ -1,6 +1,6 @@
 """Resumo manual (D48, único modo desde a D54): prepara o pedido e grava o resumo escrito por uma pessoa.
 
-Não usa chave nem API. A ação `preparar` imprime a instrução e a mensagem do resumo; quem escreve (o responsável no app
+Não usa chave nem API. A ação `preparar` imprime a instrução e a mensagem do resumo; quem escreve (uma pessoa no app
 do Gemini, ou o Claude na thread) devolve os tópicos; a ação `gravar` passa por `resumo_ia.validar`, guarda em
 dados/ e manda o resumo ao Telegram. O texto da Blizzard só aparece no log do Actions (privado), nunca em dados/ (D25).
 """

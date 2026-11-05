@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-label="agentes">
+  <defs><linearGradient id="n" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#7c3aed"/><stop offset="1" stop-color="#4c1d95"/></linearGradient></defs>
+  <path d="M5 61V32a27 27 0 0 1 54 0v29z" fill="url(#n)"/>
+  <path d="M9 57V32a23 23 0 0 1 46 0v25z" fill="none" stroke="#e9b949" stroke-opacity=".6"/>
+  <g fill="none" stroke="#f3d27a" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 3)"><circle cx="32" cy="24" r="4"/><circle cx="21" cy="42" r="4"/><circle cx="43" cy="42" r="4"/><path d="M30 28l-7 10M34 28l7 10M25 42h14"/></g>
+  
+</svg>

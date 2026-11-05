@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from hsds import resumo_ia
@@ -60,9 +58,6 @@ def test_cartas_do_prompt_separam_formato_e_incluem_texto_alterado():
     assert resumo_ia._cartas({"buffs": [], "nerfs": [], "alteradas": [], "revisadas": []}) == "Nenhuma carta alterada nos dados ainda."
 
 
-@pytest.mark.skip(reason="lê docs/prompt-resumo.md, que não vai ao público")
-def test_prompt_pede_menos_que_o_teto_da_validacao_e_esta_no_doc():
+def test_prompt_pede_menos_que_o_teto_da_validacao():
     assert "de 8 a 14 tópicos" in resumo_ia.INSTRUCAO and "280 caracteres" in resumo_ia.INSTRUCAO
-    doc = (Path(__file__).parent.parent / "docs" / "prompt-resumo.md").read_text(encoding="utf-8")
-    assert resumo_ia.INSTRUCAO in doc
     assert resumo_ia.validar([f"Tópico {i} com texto próprio." + "x" * 250 for i in range(14)], "")

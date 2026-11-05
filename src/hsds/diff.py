@@ -21,7 +21,7 @@ def _texto_comparavel(texto):
 
 
 def _grupo(mudancas: list[dict]) -> str:
-    # Só texto vai para "revisadas" (decisão do responsável em 26/10/2026): a reescrita da
+    # Só texto vai para "revisadas" (decisão de projeto em 26/10/2026): a reescrita da
     # tradução não muda o efeito, e uma mudança de efeito só no texto continua visível ali.
     # Com números junto, o texto acompanha o sentido dos números.
     numericas = [mudanca for mudanca in mudancas if mudanca["campo"] != "texto"]

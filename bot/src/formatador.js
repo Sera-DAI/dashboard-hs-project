@@ -298,7 +298,7 @@ function nomeDoFormato(formato) {
   return formato === "wild" ? "Wild" : "Padrão";
 }
 
-// formatos: { padrao: links, wild: links } com o que deve aparecer; um só quando o responsável pede o formato
+// formatos: { padrao: links, wild: links } com o que deve aparecer; um só quando o usuário pede o formato
 export function formatarDecks(classe, formatos, comFormato = false) {
   const entradas = Object.entries(formatos);
   const titulo = comFormato
