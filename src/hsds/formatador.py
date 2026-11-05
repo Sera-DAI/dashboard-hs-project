@@ -16,30 +16,51 @@ def _limpar(texto) -> str:
     return sem_html(texto or "").replace("[x]", "").replace("$", "").replace("#", "").strip()
 
 
-def _bloco(cartas: dict | None) -> str:
-    if cartas is None:
-        return "As cartas alteradas chegam em outra mensagem quando os dados forem publicados."
-    grupos = []
-    # `revisadas` (só texto) fica gravado nos dados, mas não aparece no aviso (pedido do responsável em 26/10/2026).
-    for chave, titulo in (("buffs", "Buffs"), ("nerfs", "Nerfs"), ("alteradas", "Alteradas")):
-        itens = cartas.get(chave, [])
+GRUPOS_AVISO = (("buffs", "Buffs"), ("nerfs", "Nerfs"), ("alteradas", "Alteradas"), ("revisadas", "Texto alterado"))
+FORMATOS_AVISO = (("padrao", "Padrão"), ("livre", "Livre"))
+
+
+def _linha_carta(carta: dict) -> str:
+    numeros = []
+    texto = None
+    for mudanca in sorted(carta["mudancas"], key=lambda item: CAMPOS.index(item["campo"])):
+        if mudanca["campo"] == "texto":
+            texto = f"texto novo: {_limpar(mudanca['depois'])}"
+        else:
+            numeros.append(f"{mudanca['campo']} {mudanca['antes']} → {mudanca['depois']}")
+    descricao = ", ".join(numeros)
+    if texto is not None:
+        descricao = f"{descricao}; {texto}" if descricao else texto
+    nota = " (vale também no Livre)" if carta.get("tambem_livre") else ""
+    return f"• {_limpar(carta['nome'])}: {descricao}{nota}"
+
+
+def _grupos(cartas: dict, formato) -> list[str]:
+    blocos = []
+    for chave, titulo in GRUPOS_AVISO:
+        itens = [carta for carta in cartas.get(chave, []) if carta.get("formato") == formato]
         if not itens:
             continue
         linhas = [f"{titulo} ({len(itens)})"]
-        for carta in sorted(itens, key=lambda item: (item["nome"] or "").casefold()):
-            numeros = []
-            texto = None
-            for mudanca in sorted(carta["mudancas"], key=lambda item: CAMPOS.index(item["campo"])):
-                if mudanca["campo"] == "texto":
-                    texto = f"texto novo: {_limpar(mudanca['depois'])}"
-                else:
-                    numeros.append(f"{mudanca['campo']} {mudanca['antes']} → {mudanca['depois']}")
-            descricao = ", ".join(numeros)
-            if texto is not None:
-                descricao = f"{descricao}; {texto}" if descricao else texto
-            linhas.append(f"• {_limpar(carta['nome'])}: {descricao}")
-        grupos.append("\n".join(linhas))
-    return "\n\n".join(grupos) or "Nenhuma carta colecionável mudou."
+        linhas.extend(_linha_carta(carta) for carta in sorted(itens, key=lambda item: (item["nome"] or "").casefold()))
+        blocos.append("\n".join(linhas))
+    return blocos
+
+
+def _bloco(cartas: dict | None) -> str:
+    if cartas is None:
+        return "As cartas alteradas chegam em outra mensagem quando os dados forem publicados."
+    # D46: cada patch separa o Padrão do Livre; sem a lista de formatos (dados antigos), uma lista só, como antes.
+    if any(carta.get("formato") for grupo in cartas.values() for carta in grupo):
+        partes = []
+        for formato, nome in FORMATOS_AVISO:
+            blocos = _grupos(cartas, formato)
+            partes.append(f"{nome}\n\n" + "\n\n".join(blocos) if blocos else f"{nome}\nNenhuma alteração relevante.")
+        sem_formato = _grupos(cartas, None)
+        if sem_formato:
+            partes.append("Sem formato definido\n\n" + "\n\n".join(sem_formato))
+        return "\n\n".join(partes)
+    return "\n\n".join(_grupos(cartas, None)) or "Nenhuma carta colecionável mudou."
 
 
 def _bloco_resumo(patch: dict) -> str:

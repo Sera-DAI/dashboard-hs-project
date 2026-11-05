@@ -188,7 +188,8 @@ test("/patch mostra o mais recente com resumo, cartas e link do dashboard", asyn
   assert.match(texto, /Notas do patch 36\.6\nhttps:\/\/example\.test\/patch\/36\.6/);
   assert.match(texto, /Resumo gerado por IA\n\n⚔️ O Leeroy ficou mais barato\./);
   assert.match(texto, /Buffs \(1\)\n• Leeroy Jenkins: custo 5 → 4/);
-  assert.doesNotMatch(texto, /Texto revisado|Poção Volátil/);
+  // D46: o texto alterado volta ao /patch, como grupo próprio.
+  assert.match(texto, /Texto alterado \(1\)\n• Poção Volátil: texto novo: Cause 2 de dano a um lacaio\./);
   assert.match(texto, /Ver no dashboard: https:\/\/dashboard-hs\.pages\.dev\/#patch\/patches\/36\.6\.json$/);
 });
 
@@ -220,8 +221,7 @@ test("/carta procura parcial sem acento e exibe várias opções com mais de dez
   const [semAcento] = await executar("/carta pocao");
   const [ambiguas] = await executar("/carta teste");
   assert.match(semAcento, /^Poção Volátil · Mago/);
-  assert.match(semAcento, /Nenhuma mudança nos patches gravados desde 10\/10\/2026\./);
-  assert.doesNotMatch(semAcento, /texto revisado/);
+  assert.match(semAcento, /Patch 36\.6 \(26\/10\/2026\), texto alterado: texto novo: Cause 2 de dano a um lacaio\./);
   assert.match(ambiguas, /^Achei 11 cartas com "teste"\. Mande \/carta com o nome completo: Mostrando 10\./);
   assert.equal((ambiguas.match(/^• /gm) ?? []).length, 10);
   assert.match(ambiguas, /• Teste Alfa/);
@@ -268,7 +268,7 @@ test("/carta sem atributos não deixa linha vazia e comando com acento vale", as
 
 test("/historico usa singular e identifica patch com cartas indisponíveis", async () => {
   const [texto] = await executar("/historico");
-  assert.match(texto, /• 36\.6 \(26\/10\/2026\): 1 buff, 1 nerf, 0 alteradas\n/);
+  assert.match(texto, /• 36\.6 \(26\/10\/2026\): 1 buff, 1 nerf, 0 alteradas, 1 texto alterado\n/);
   assert.match(texto, /• 36\.5 \(20\/10\/2026\): 0 buffs, 1 nerf, 0 alteradas/);
   assert.match(texto, /• 36\.4 \(10\/10\/2026\): lista de cartas indisponível/);
   assert.match(texto, /Use \/patch <versão> para ver um deles\.\nhttps:\/\/dashboard-hs\.pages\.dev$/);
@@ -455,4 +455,33 @@ test("corpo inválido recebe 200 vazio sem resposta ao Telegram", async (context
   assert.equal(resposta.status, 200);
   assert.equal(await resposta.text(), "");
   assert.equal(chamadas, 0);
+});
+
+test("o aviso do bot separa Padrão e Livre quando as cartas trazem o formato", async () => {
+  const { blocoCartas } = await import("../../bot/src/formatador.js");
+  const cartas = {
+    buffs: [{ nome: "Isiset", formato: "padrao", tambem_livre: true, mudancas: [{ campo: "custo", antes: 7, depois: 6 }] }],
+    nerfs: [],
+    alteradas: [],
+    revisadas: [{ nome: "Reencarnar", formato: "livre", mudancas: [{ campo: "texto", antes: "a", depois: "<b>Lendário</b> não" }] }]
+  };
+  assert.equal(
+    blocoCartas(cartas),
+    "Padrão\n\nBuffs (1)\n• Isiset: custo 7 → 6 (vale também no Livre)\n\nLivre\n\nTexto alterado (1)\n• Reencarnar: texto novo: Lendário não"
+  );
+  assert.match(blocoCartas({ ...cartas, revisadas: [] }), /Livre\nNenhuma alteração relevante\.$/);
+});
+
+test("o aviso do bot põe sob 'Sem formato definido' a carta sem formato em meio às que têm", async () => {
+  const { blocoCartas } = await import("../../bot/src/formatador.js");
+  const texto = blocoCartas({
+    buffs: [
+      { nome: "Isiset", formato: "padrao", mudancas: [{ campo: "custo", antes: 7, depois: 6 }] },
+      { nome: "Antiga", mudancas: [{ campo: "custo", antes: 3, depois: 2 }] }
+    ],
+    nerfs: [],
+    alteradas: [],
+    revisadas: []
+  });
+  assert.match(texto, /^Padrão\n\nBuffs \(1\)\n• Isiset: custo 7 → 6\n\nLivre\nNenhuma alteração relevante\.\n\nSem formato definido\n\nBuffs \(1\)\n• Antiga: custo 3 → 2$/);
 });

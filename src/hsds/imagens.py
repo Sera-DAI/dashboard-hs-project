@@ -15,7 +15,7 @@ import urllib.request
 from http.client import HTTPException
 from pathlib import Path
 
-from hsds import gravacao
+from hsds import formatos, gravacao
 from hsds.http import AGENTE, ErroFonte
 
 URL_TOKEN = "https://oauth.battle.net/token"
@@ -144,7 +144,21 @@ def executar(ambiente=None, abrir=_abrir_padrao, raiz: Path = RAIZ) -> int:
     if gravacao.ler(destino) != resultado:
         gravacao.gravar({destino: resultado})
     print(f"Imagens: {len(resultado['imagens'])} de {len(cartas['cartas'])} cartas.")
+    _atualizar_formatos(token, raiz, abrir)
     return 0
+
+
+def _atualizar_formatos(token: str, raiz: Path, abrir) -> None:
+    """Guarda quais cartas são do Padrão (D46). Se falhar, as imagens já gravadas valem e o arquivo anterior fica."""
+    try:
+        padrao = formatos.montar(formatos.baixar_padrao(token, lambda requisicao: _pedir(requisicao, abrir)))
+    except ErroFonte as erro:
+        print(f"Formatos não atualizados: {erro.motivo}.", file=sys.stderr)
+        return
+    destino = raiz / "dados" / "formatos.json"
+    if gravacao.ler(destino) != padrao:
+        gravacao.gravar({destino: padrao})
+    print(f"Formatos: {len(padrao['padrao'])} cartas no Padrão.")
 
 
 def main() -> None:

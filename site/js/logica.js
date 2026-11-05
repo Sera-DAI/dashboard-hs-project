@@ -152,7 +152,7 @@ export function historicoDaCarta(dbfId, patches) {
   return [...(patches ?? [])]
     .filter((patch) => {
       const grupos = patch.cartas;
-      return grupos && ["buffs", "nerfs", "alteradas"].some((grupo) =>
+      return grupos && ["buffs", "nerfs", "alteradas", "revisadas"].some((grupo) =>
         (grupos[grupo] ?? []).some((carta) => String(carta.dbfId) === String(dbfId))
       );
     })
@@ -197,6 +197,47 @@ export async function carregarJson(url, fetcher = fetch) {
   return resposta.json();
 }
 export const GRUPOS = [["buffs", "Buffs"], ["nerfs", "Nerfs"], ["alteradas", "Alteradas"]];
+// D46: o texto alterado volta às listas, como quarto grupo, e cada patch separa o Padrão do Livre.
+export const GRUPOS_COMPLETOS = [...GRUPOS, ["revisadas", "Texto alterado"]];
+export const FORMATOS = [["padrao", "Padrão"], ["livre", "Livre"]];
+const ROTULO_GRUPO = { buffs: "buff", nerfs: "nerf", alteradas: "alterada", revisadas: "texto" };
+
+export function rotuloDoGrupo(grupo) {
+  return ROTULO_GRUPO[grupo] ?? String(grupo);
+}
+
+// No histórico da carta o grupo aparece no plural, como sempre; só o texto alterado ganha nome legível.
+export function nomeDoGrupo(grupo) {
+  return grupo === "revisadas" ? "texto alterado" : String(grupo);
+}
+
+function contarGrupos(cartas) {
+  return {
+    cartas,
+    buffs: cartas.filter((carta) => carta.grupo === "buffs").length,
+    nerfs: cartas.filter((carta) => carta.grupo === "nerfs").length,
+    alteradas: cartas.filter((carta) => carta.grupo === "alteradas").length,
+    revisadas: cartas.filter((carta) => carta.grupo === "revisadas").length
+  };
+}
+
+// As seções do patch: Padrão e Livre quando o diff traz o formato de cada carta; senão uma lista só.
+export function secoesDoPatch(patch) {
+  const cartas = patch?.cartas ?? [];
+  if (!cartas.some((carta) => carta.formato)) {
+    return [{ chave: "todas", rotulo: "Cartas alteradas", ...contarGrupos(cartas) }];
+  }
+  const secoes = FORMATOS.map(([chave, rotulo]) => ({
+    chave,
+    rotulo,
+    ...contarGrupos(cartas.filter((carta) => carta.formato === chave))
+  }));
+  const sem = cartas.filter((carta) => !FORMATOS.some(([chave]) => chave === carta.formato));
+  if (sem.length) {
+    secoes.push({ chave: "sem", rotulo: "Sem formato definido", ...contarGrupos(sem) });
+  }
+  return secoes;
+}
 
 const ATRIBUTOS = ["custo", "ataque", "vida", "durabilidade", "armadura", "texto"];
 
@@ -210,7 +251,7 @@ export function prepararPatches(patches, cartas = {}) {
   const estados = new Map(Object.entries(cartas).map(([id, carta]) => [String(id), { ...carta }]));
   return [...patches].sort((a, b) => String(b.data).localeCompare(String(a.data))).map((patch) => {
     const visiveis = [];
-    for (const grupo of [...GRUPOS.map(([chave]) => chave), "revisadas"]) {
+    for (const grupo of GRUPOS_COMPLETOS.map(([chave]) => chave)) {
       for (const carta of patch.cartas?.[grupo] ?? []) {
         const id = String(carta.dbfId);
         const atual = cartas[id] ?? {};
@@ -227,19 +268,17 @@ export function prepararPatches(patches, cartas = {}) {
           }
         }
         estados.set(id, antes);
-        if (grupo !== "revisadas") {
-          visiveis.push({
-            ...atual,
-            ...carta,
-            id: atual.id,
-            grupo,
-            versao: patch.versao,
-            data: patch.data,
-            antes,
-            depois,
-            historica: ATRIBUTOS.some((campo) => depois[campo] !== atual[campo])
-          });
-        }
+        visiveis.push({
+          ...atual,
+          ...carta,
+          id: atual.id,
+          grupo,
+          versao: patch.versao,
+          data: patch.data,
+          antes,
+          depois,
+          historica: ATRIBUTOS.some((campo) => depois[campo] !== atual[campo])
+        });
       }
     }
     return {
@@ -249,7 +288,8 @@ export function prepararPatches(patches, cartas = {}) {
       link: patch.noticia?.link ?? patch.noticia_en?.link,
       buffs: visiveis.filter((carta) => carta.grupo === "buffs").length,
       nerfs: visiveis.filter((carta) => carta.grupo === "nerfs").length,
-      alteradas: visiveis.filter((carta) => carta.grupo === "alteradas").length
+      alteradas: visiveis.filter((carta) => carta.grupo === "alteradas").length,
+      revisadas: visiveis.filter((carta) => carta.grupo === "revisadas").length
     };
   });
 }
@@ -283,7 +323,8 @@ export function marcaMudanca(carta, versao, campo) {
 }
 
 export function filtrarCarta(carta, consulta, grupo = "todas") {
-  return (grupo === "todas" || carta.grupo === grupo) && normalizar(carta.nome).includes(normalizar(consulta).trim());
+  // O filtro vale para o grupo (buffs, nerfs...) ou para o formato (padrao, livre).
+  return (grupo === "todas" || carta.grupo === grupo || carta.formato === grupo) && normalizar(carta.nome).includes(normalizar(consulta).trim());
 }
 
 export function assuntoNoticia(titulo) {

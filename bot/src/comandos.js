@@ -119,7 +119,7 @@ async function comandoCarta(argumento, lerJson, dashboard) {
 async function comandoHistorico(lerJson, dashboard) {
   const indice = await lerJson("indice.json");
   const patches = await Promise.all((indice.patches ?? []).slice(0, 10).map(async (item) => {
-    if ((item.buffs ?? 0) + (item.nerfs ?? 0) + (item.alteradas ?? 0) !== 0) {
+    if ((item.buffs ?? 0) + (item.nerfs ?? 0) + (item.alteradas ?? 0) + (item.revisadas ?? 0) !== 0) {
       return item;
     }
 

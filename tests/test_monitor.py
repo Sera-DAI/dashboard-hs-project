@@ -441,14 +441,119 @@ def test_falha_do_resumo_nao_bloqueia_aviso_e_tenta_novamente(ambiente, monkeypa
     assert ambiente["envios"][1].startswith("Hearthstone DS: resumo do patch 36.6")
 
 
-def test_resumo_pendente_expira_em_24_horas(ambiente, monkeypatch):
+def test_resumo_pendente_expira_em_7_dias(ambiente, monkeypatch):
     assert monitor.main() == 0
     noticia_pt(ambiente)
     monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: (_ for _ in ()).throw(resumo_ia.ErroResumo("resposta inválida")))
     assert monitor.main() == 0
     ambiente["agora"] += timedelta(hours=24)
     assert monitor.main() == 0
+    assert len(ler("estado.json")["resumos_pendentes"]) == 1
+    ambiente["agora"] += timedelta(days=7)
+    assert monitor.main() == 0
     assert ler("estado.json")["resumos_pendentes"] == []
+    # O patch ainda é recente (menos de 14 dias): a revisão o põe de volta na fila na execução seguinte.
+    ambiente["agora"] += timedelta(hours=1)
+    assert monitor.main() == 0
+    assert [item["desde"] for item in ler("estado.json")["resumos_pendentes"]] == ["2026-10-31T19:17:00Z"]
+    ambiente["agora"] += timedelta(days=8)
+    assert monitor.main() == 0
+    assert ler("estado.json")["resumos_pendentes"] == []
+
+
+def lista_ingles(ambiente, identificador, titulo, conteudo, publicada=1792771200000):
+    ambiente["en"] = json.dumps({"blogList": [{
+        "id": identificador,
+        "title": titulo,
+        "summary": "Official summary.",
+        "content": conteudo,
+        "publish": publicada,
+    }]}).encode()
+
+
+def test_resumo_sai_depois_de_a_traducao_demorar_mais_de_24_horas(ambiente, monkeypatch):
+    # O caso do 37.0.2: aviso em inglês, resumo falha, e a notícia pt-BR só aparece dias depois.
+    assert monitor.main() == 0
+    lista_ingles(ambiente, 20, "36.6 Patch Notes", "<p>English body of the notes.</p>")
+    nova_build(ambiente)
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: (_ for _ in ()).throw(resumo_ia.ErroResumo("limite de uso atingido")))
+    assert monitor.main() == 0
+    arquivo = "patches/2026-10-23-36.6.json"
+    assert ler(arquivo)["resumo_ia"] is None
+    assert [item["arquivo"] for item in ler("estado.json")["resumos_pendentes"]] == [arquivo]
+
+    chamadas = []
+
+    def gerar(titulo, texto, idioma, cartas, chave, **kwargs):
+        chamadas.append((titulo, idioma))
+        return ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."]
+
+    monkeypatch.setattr(resumo_ia, "gerar", gerar)
+    ambiente["agora"] += timedelta(days=2)
+    assert monitor.main() == 0
+    assert chamadas == [("36.6 Patch Notes", "en-us")]
+    assert ler(arquivo)["resumo_ia"]["topicos"]
+    assert ler("estado.json")["resumos_pendentes"] == []
+    assert ambiente["envios"][-1].startswith("Hearthstone DS: resumo do patch 36.6")
+
+
+def test_patch_recente_sem_resumo_e_sem_pendencia_volta_para_a_fila(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: (_ for _ in ()).throw(resumo_ia.ErroResumo("resposta inválida")))
+    assert monitor.main() == 0
+    arquivo = "patches/2026-10-23-36.6.json"
+    estado = ler("estado.json")
+    estado["resumos_pendentes"] = []
+    gravacao.gravar({Path("dados/estado.json"): estado})
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."])
+    ambiente["agora"] += timedelta(hours=2)
+    assert monitor.main() == 0
+    assert ler(arquivo)["resumo_ia"]["topicos"]
+    assert ler("estado.json")["resumos_pendentes"] == []
+
+
+def test_retroativo_sem_resumo_nao_volta_para_a_fila_do_monitor(ambiente, monkeypatch):
+    assert monitor.main() == 0
+    patch = {"versao": "35.4", "data": "2026-10-20", "build": 1, "noticia": {"id": 10, "titulo": "Notas do patch 35.4", "link": "x", "publicada": "2026-10-20T10:00:00Z"}, "noticia_en": None, "cartas": None, "retroativo": True, "resumo_ia": None}
+    gravacao.gravar({
+        Path("dados/patches/2026-10-20-35.4.json"): patch,
+        Path("dados/indice.json"): {"patches": [{"arquivo": "patches/2026-10-20-35.4.json", "versao": "35.4", "data": "2026-10-20", "buffs": 0, "nerfs": 0, "alteradas": 0, "revisadas": 0}]},
+    })
+    assert monitor.main() == 0
+    assert ler("estado.json")["resumos_pendentes"] == []
+
+
+def test_lista_ptbr_sem_texto_usa_o_texto_em_ingles(ambiente, monkeypatch, capsys):
+    assert monitor.main() == 0
+    dados = json.loads((DADOS / "noticias-patch.json").read_bytes())
+    dados["blogList"][0]["content"] = ""
+    ambiente["pt"] = json.dumps(dados).encode()
+    lista_ingles(ambiente, 12, "36.6 Patch Notes", "<p>English body of the notes.</p>")
+    chamadas = []
+
+    def gerar(titulo, texto, idioma, cartas, chave, **kwargs):
+        chamadas.append((titulo, texto, idioma))
+        return ["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."]
+
+    monkeypatch.setattr(resumo_ia, "gerar", gerar)
+    assert monitor.main() == 0
+    assert chamadas == [("36.6 Patch Notes", "English body of the notes.", "en-us")]
+    assert ler("patches/2026-10-23-36.6.json")["resumo_ia"]["topicos"]
+
+
+def test_sem_texto_em_nenhuma_lingua_fica_pendente_e_avisa_no_log(ambiente, monkeypatch, capsys):
+    assert monitor.main() == 0
+    dados = json.loads((DADOS / "noticias-patch.json").read_bytes())
+    dados["blogList"][0]["content"] = ""
+    ambiente["pt"] = json.dumps(dados).encode()
+    lista_ingles(ambiente, 12, "36.6 Patch Notes", None)
+    monkeypatch.setattr(resumo_ia, "gerar", lambda *args, **kwargs: pytest.fail("não há texto para resumir"))
+    assert monitor.main() == 0
+    arquivo = "patches/2026-10-23-36.6.json"
+    assert ler(arquivo)["resumo_ia"] is None
+    assert [item["arquivo"] for item in ler("estado.json")["resumos_pendentes"]] == [arquivo]
+    assert "sem o texto da notícia" in capsys.readouterr().out
 
 
 def test_limita_tres_geracoes_prioriza_patch_e_noticias_mais_novas(ambiente):
@@ -548,3 +653,53 @@ def test_patch_gravado_com_regra_antiga_de_texto_e_regravado(ambiente):
     antes = arquivos()
     assert monitor.main() == 0
     assert arquivos() == antes
+
+
+def gravar_formatos(ids):
+    # A carta 1 do Padrão mais um bloco de ids distantes, para passar do mínimo que valida o arquivo.
+    gravacao.gravar({Path("dados/formatos.json"): {"padrao": sorted(set(ids) | set(range(1000, 1400)))}})
+
+
+def test_diff_novo_ganha_formato_quando_a_lista_do_padrao_existe(ambiente):
+    assert monitor.main() == 0
+    gravar_formatos([1])
+    noticia_pt(ambiente)
+    nova_build(ambiente)
+    assert monitor.main() == 0
+    cartas = ler("patches/2026-10-23-36.6.json")["cartas"]
+    formatos = {carta["dbfId"]: carta["formato"] for grupo in cartas.values() for carta in grupo}
+    assert formatos == {1: "padrao", 2: "livre"}
+    texto = ambiente["envios"][0]
+    assert "Padrão\n\n" in texto and "Livre\n\n" in texto
+
+
+def test_patch_gravado_sem_formato_e_regravado_quando_a_lista_do_padrao_aparece(ambiente):
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+    nova_build(ambiente)
+    assert monitor.main() == 0
+    arquivo = "patches/2026-10-23-36.6.json"
+    assert all("formato" not in carta for grupo in ler(arquivo)["cartas"].values() for carta in grupo)
+    envios = len(ambiente["envios"])
+    gravar_formatos([1])
+    assert monitor.main() == 0
+    formatos = {carta["dbfId"]: carta["formato"] for grupo in ler(arquivo)["cartas"].values() for carta in grupo}
+    assert formatos == {1: "padrao", 2: "livre"}
+    assert len(ambiente["envios"]) == envios
+    antes = arquivos()
+    assert monitor.main() == 0
+    assert arquivos() == antes
+
+
+def test_patch_grava_o_modelo_reserva_que_respondeu(ambiente, monkeypatch):
+    def gerar(*args, **kwargs):
+        topicos = resumo_ia.Topicos(["Arena recebe ajustes.", "Novo evento chega.", "Bugs importantes corrigidos."])
+        topicos.modelo = resumo_ia.MODELOS_RESERVA[0]
+        return topicos
+
+    monkeypatch.setattr(resumo_ia, "gerar", gerar)
+    assert monitor.main() == 0
+    noticia_pt(ambiente)
+    nova_build(ambiente)
+    assert monitor.main() == 0
+    assert ler("patches/2026-10-23-36.6.json")["resumo_ia"]["modelo"] == resumo_ia.MODELOS_RESERVA[0]

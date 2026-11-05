@@ -163,7 +163,7 @@ def _resumo(noticia, patch, com_cartas: bool, chave: str):
         topicos = resumo_ia.gerar(noticia.titulo, noticia.texto, "pt-br", patch.get("cartas"), chave, com_cartas=com_cartas)
     except resumo_ia.ErroResumo:
         return None
-    return {"topicos": topicos, "modelo": resumo_ia.MODELO, "gerado": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
+    return {"topicos": topicos, "modelo": getattr(topicos, "modelo", resumo_ia.MODELO), "gerado": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")}
 
 
 def _enviar(textos: list[str]) -> None:

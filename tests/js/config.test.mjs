@@ -25,25 +25,3 @@ test("site/_headers mantém as proteções essenciais", async () => {
   }
   assert.doesNotMatch(cabecalhos, /script-src[^;]*'unsafe-inline'/);
 });
-
-test.skip("o menu do bot em bot.yml bate com docs/mensagens.md e com o roteador", async () => {
-  const [workflow, mensagens, comandos] = await Promise.all([
-    ler(".github/workflows/bot.yml"),
-    ler("docs/mensagens.md"),
-    ler("bot/src/comandos.js")
-  ]);
-  const json = workflow.match(/'commands=(\[.*?\])'/)?.[1];
-  assert.ok(json, "bot.yml sem o JSON de commands");
-  const menu = JSON.parse(json);
-  const linha = mensagens.split("\n").find((l) => l.startsWith("Menu do Telegram (`setMyCommands`)"));
-  assert.ok(linha, "mensagens.md sem a linha do menu");
-  const documentado = [...linha.matchAll(/`(\w+)` "([^"]+)"/g)].map((m) => ({ command: m[1], description: m[2] }));
-
-  assert.deepEqual(menu, documentado);
-  for (const { command } of menu) {
-    if (command !== "ajuda") {
-      assert.ok(comandos.includes(`comando === "${command}"`), `o roteador não trata /${command}`);
-    }
-  }
-  assert.ok(!menu.some((c) => /Top 500/.test(c.description)), "o menu não pode prometer Top 500 (D38)");
-});

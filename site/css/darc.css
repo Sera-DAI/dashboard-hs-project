@@ -153,14 +153,21 @@ h2 em, h1 em { font-style: italic; font-weight: 500; color: var(--acento); }
 .dupla { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 56px; align-items: start; }
 @media (max-width: 900px) { .dupla { grid-template-columns: minmax(0, 1fr); gap: 36px; } }
 .coluna { display: grid; gap: 24px; }
-.medalhas { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.medalha { display: grid; justify-items: center; gap: 6px; padding: 26px 10px 20px; background: var(--branco); border-radius: var(--arco); box-shadow: inset 0 0 0 1px var(--linha); text-align: center; }
+.medalhas { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+@media (max-width: 560px) { .medalhas { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.medalha { display: grid; justify-items: center; gap: 6px; padding: 22px 10px 18px; background: var(--branco); border-radius: var(--arco); box-shadow: inset 0 0 0 1px var(--linha); text-align: center; }
 .medalha svg { width: 18px; height: 18px; }
 .medalha b { font: 600 3rem/1 var(--serifa); letter-spacing: -.03em; font-variant-numeric: tabular-nums lining-nums; }
 .medalha small { font: 500 .64rem var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--suave); }
 .medalha.b svg, .medalha.b b { color: var(--buff); }
 .medalha.n svg, .medalha.n b { color: var(--nerf); }
 .medalha.a svg, .medalha.a b { color: #a67c14; }
+.medalha.t svg, .medalha.t b { color: var(--real); }
+/* D46: cada patch tem uma parte para o Padrão e outra para o Livre */
+.secao-formato { display: grid; gap: 18px; min-width: 0; }
+.secao-topo h3 { font: 600 1.7rem/1.1 var(--serifa); letter-spacing: -.02em; margin: 0; }
+.secao-formato + .secao-formato { padding-top: 14px; border-top: 1px solid var(--linha); }
+.tambem-livre { opacity: .8; font-style: italic; }
 .pergaminho { position: relative; padding: 30px 30px 26px; background: var(--branco); box-shadow: inset 0 0 0 1px var(--linha), 0 30px 60px -40px rgba(13,24,70,.35); }
 .pergaminho::before, .pergaminho::after { content: ""; position: absolute; left: 0; right: 0; height: 5px; border-block: 1px solid var(--ouro); }
 .pergaminho::before { top: 10px; } .pergaminho::after { bottom: 10px; }
@@ -441,7 +448,7 @@ h2 em, h1 em { font-style: italic; font-weight: 500; color: var(--acento); }
 .grade-cartas button { padding-bottom: 6px; }
 .grade-cartas .rotulo { margin-top: 12px;  display: flex; justify-content: space-between; gap: 8px; font: 500 .66rem var(--mono); letter-spacing: .06em; color: var(--suave); }
 .grade-cartas .rotulo b { text-transform: uppercase; letter-spacing: .1em; }
-.t-buffs { color: var(--buff) !important; } .t-nerfs { color: var(--nerf) !important; } .t-alteradas { color: #a67c14 !important; }
+.t-buffs { color: var(--buff) !important; } .t-nerfs { color: var(--nerf) !important; } .t-alteradas { color: #a67c14 !important; } .t-revisadas { color: var(--real) !important; }
 
 /* Janelas (carta e decks) */
 .janela { width: min(100% - 32px, 760px); max-height: calc(100vh - 40px); padding: 0; border: 0; border-radius: 26px; background: var(--noite-2); color: var(--marfim); box-shadow: 0 0 0 1px rgba(233,185,73,.35), 0 40px 120px -20px #000; overflow: auto; }

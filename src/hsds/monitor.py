@@ -5,11 +5,15 @@ import os
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from hsds import blizzard, busca, diff, formatador, gravacao, hearthstonejson, http, resumo_ia, telegram
+from hsds import blizzard, busca, diff, formatador, formatos, gravacao, hearthstonejson, http, resumo_ia, telegram
 
 LISTA = "https://hearthstone.blizzard.com/{idioma}/api/blog/articleList/?page=1&pageSize=12"
 CARTAS = "https://api.hearthstonejson.com/v1/{build}/ptBR/cards.collectible.json"
 LIMITE_RESUMOS = 3
+# A tradução pt-BR de um patch pode aparecer na lista só dias depois do aviso em inglês (37.0.2: ~1,5 dia).
+VALIDADE_RESUMO = timedelta(days=7)
+# Patch ou notícia recente que ficou sem resumo e fora da fila volta para ela por este prazo.
+JANELA_REVISAO = timedelta(days=14)
 
 
 def _agora() -> datetime:
@@ -65,6 +69,30 @@ def _nome_noticia(noticia) -> str:
     return f"noticias/{noticia.publicada[:10]}-{noticia.id}.json"
 
 
+def _rever_sem_resumo(raiz: Path, estado: dict, agora: datetime, instante: str) -> None:
+    """Põe de volta na fila o patch ou a notícia recente que ficou sem resumo e sem pendência.
+
+    Foi o que travou o 37.0.2: a fila expirou antes de a tradução sair e nada mais lembrava dele.
+    Os retroativos têm fila própria (historico) e ficam de fora.
+    """
+    limite = (agora - JANELA_REVISAO).date().isoformat()
+    na_fila = {item["arquivo"] for item in estado["resumos_pendentes"]}
+    candidatos = []
+    for entrada in gravacao.ler(raiz / "indice.json", {"patches": []})["patches"]:
+        candidatos.append((entrada["arquivo"], entrada["data"], "patch"))
+    for entrada in gravacao.ler(raiz / "noticias.json", {"noticias": []})["noticias"]:
+        candidatos.append((entrada["arquivo"], entrada["data"], "noticia"))
+    for arquivo, data, tipo in candidatos:
+        if arquivo in na_fila or data < limite:
+            continue
+        registro = gravacao.ler(raiz / arquivo, {})
+        if registro.get("resumo_ia") or registro.get("retroativo"):
+            continue
+        if tipo == "patch" and not (registro.get("noticia") or registro.get("noticia_en")):
+            continue
+        estado["resumos_pendentes"].append({"arquivo": arquivo, "desde": instante})
+
+
 def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agora: datetime):
     estado = copy.deepcopy(estado)
     estado.setdefault("resumos_pendentes", [])
@@ -75,12 +103,14 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
         if agora - _data(item["desde"]) < timedelta(days=7)
     ]
     patches = {item["arquivo"]: gravacao.ler(raiz / item["arquivo"]) for item in estado["pendentes"]}
+    _rever_sem_resumo(raiz, estado, agora, instante)
     alterados = {}
     textos = []
     chamadas_resumo = 0
     arquivos_com_resumo_tentado = set()
     pendentes_antes = {item["arquivo"] for item in estado["resumos_pendentes"]}
-    mudancas = diff.comparar(gravacao.ler(raiz / "cartas.json"), cartas) if cartas else None
+    padrao = formatos.carregar(raiz)
+    mudancas = diff.comparar(gravacao.ler(raiz / "cartas.json"), cartas, padrao) if cartas else None
     tem_diff = mudancas is not None and any(mudancas.values())
     novas = sorted(
         (item for item in noticias if item.id not in estado["noticias_vistas"] and blizzard.e_patch(item)),
@@ -90,6 +120,20 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
         (item for item in noticias if item.id not in estado["noticias_vistas"] and not blizzard.e_patch(item)),
         key=lambda item: (item.publicada, item.id),
     )
+    lista_ingles = []
+
+    def ingles():
+        # Uma só leitura da lista em inglês por execução, e só quando alguém precisa dela.
+        if not lista_ingles:
+            lista_ingles.append(_noticias("en-us"))
+        return lista_ingles[0]
+
+    def noticia_com_texto(noticia):
+        # A lista pt-BR às vezes traz o item sem `content`; o texto em inglês serve ao resumo (que sai em português).
+        if noticia.texto:
+            return noticia
+        return next((item for item in ingles() if item.id == noticia.id and item.texto), None)
+
     prioritarias = {item.id for item in novas[-LIMITE_RESUMOS:]}
     prioritarias_notas = {item.id for item in novas_notas[-LIMITE_RESUMOS:]}
     indice_noticias = gravacao.ler(raiz / "noticias.json", {"noticias": []})
@@ -113,28 +157,36 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
 
     def gerar_resumo(arquivo, patch, noticia, permitido=True):
         nonlocal chamadas_resumo
-        if noticia is None or not noticia.texto:
+        if noticia is None:
             return False
         if chamadas_resumo >= LIMITE_RESUMOS or not permitido:
+            marcar_resumo_pendente(arquivo, patch)
+            return False
+        fonte = noticia_com_texto(noticia)
+        if fonte is None:
+            # Sem texto em nenhuma língua: tenta de novo nas próximas execuções, não esquece em silêncio.
+            print(f"Resumo pendente ({arquivo}): a lista da Blizzard veio sem o texto da notícia.")
             marcar_resumo_pendente(arquivo, patch)
             return False
         chamadas_resumo += 1
         arquivos_com_resumo_tentado.add(arquivo)
         try:
             topicos = resumo_ia.gerar(
-                noticia.titulo,
-                noticia.texto,
-                "pt-br" if noticia.link.find("/pt-br/") >= 0 else "en-us",
+                fonte.titulo,
+                fonte.texto,
+                "pt-br" if fonte.link.find("/pt-br/") >= 0 else "en-us",
                 patch.get("cartas"),
                 os.environ.get("GEMINI_API_KEY", ""),
                 com_cartas=patch.get("_com_cartas", True),
             )
-        except resumo_ia.ErroResumo:
+        except resumo_ia.ErroResumo as erro:
+            # O motivo é um texto fixo mais, no máximo, o código HTTP; não traz chave, pedido nem resposta (ver resumo_ia.ErroResumo).
+            print(f"Resumo pendente ({arquivo}): {erro.motivo}.")
             marcar_resumo_pendente(arquivo, patch)
             return False
         patch["resumo_ia"] = {
             "topicos": topicos,
-            "modelo": resumo_ia.MODELO,
+            "modelo": getattr(topicos, "modelo", resumo_ia.MODELO),
             "gerado": instante,
         }
         estado["resumos_pendentes"] = [
@@ -186,15 +238,14 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
             guardar(arquivo, patch)
             textos.extend(formatador.cartas_atualizadas(patch))
         else:
-            noticias_ingles = _noticias("en-us")
-            ingles = sorted(
-                (item for item in noticias_ingles if blizzard.e_patch(item)),
+            ingles_patches = sorted(
+                (item for item in ingles() if blizzard.e_patch(item)),
                 key=lambda item: (item.publicada, item.id),
                 reverse=True,
             )
             indice = gravacao.ler(raiz / "indice.json", {"patches": []})
             versoes = {item["versao"] for item in indice["patches"] if item["versao"]}
-            noticia = ingles[0] if ingles else None
+            noticia = ingles_patches[0] if ingles_patches else None
             if noticia and noticia.versao in versoes:
                 noticia = None
             patch = _novo(noticia, build, hoje, mudancas, ingles=True)
@@ -243,7 +294,7 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
 
     estado["resumos_pendentes"] = [
         item for item in estado["resumos_pendentes"]
-        if agora - _data(item["desde"]) < timedelta(hours=24)
+        if agora - _data(item["desde"]) < VALIDADE_RESUMO
     ]
     candidatos = sorted(
         (item for item in estado["resumos_pendentes"] if item["arquivo"] in pendentes_antes),
@@ -260,11 +311,15 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
         if patch is None:
             patch = gravacao.ler(raiz / item["arquivo"])
             patches[item["arquivo"]] = patch
-        id_noticia = patch.get("id") if is_noticia else (patch.get("noticia") or {}).get("id")
+        referencia = patch if is_noticia else (patch.get("noticia") or patch.get("noticia_en") or {})
+        id_noticia = referencia.get("id")
         noticia_atual = next(
             (noticia for noticia in noticias if noticia.id == id_noticia),
             None,
         )
+        if noticia_atual is None and id_noticia is not None:
+            # A tradução pode ainda não estar na lista pt-BR; a lista em inglês traz o mesmo id.
+            noticia_atual = next((noticia for noticia in ingles() if noticia.id == id_noticia), None)
         if noticia_atual:
             registro_para_gerar = {**patch, "_com_cartas": not is_noticia}
             if gerar_resumo(item["arquivo"], registro_para_gerar, noticia_atual):
@@ -279,14 +334,19 @@ def _planejar(raiz: Path, estado: dict, noticias: list, build: int, cartas, agor
                 else:
                     alterados[item["arquivo"]] = patch
                     textos.extend(formatador.resumo_atrasado(patch))
-            break
 
-    # Patches gravados com uma regra de texto mais antiga (por exemplo, o 37.0 antes de 26/10/2026).
+    # Patches gravados com uma regra de texto mais antiga (por exemplo, o 37.0 antes de 26/10/2026) ou sem o
+    # formato das cartas (D46): o monitor regrava com a regra atual, sem aviso.
+    atuais = cartas or gravacao.ler(raiz / "cartas.json")
     for entrada in gravacao.ler(raiz / "indice.json", {"patches": []})["patches"]:
         patch = alterados.get(entrada["arquivo"]) or patches.get(entrada["arquivo"]) or gravacao.ler(raiz / entrada["arquivo"])
         cartas_limpas = diff.reaplicar(patch.get("cartas"))
         if cartas_limpas is not None:
             patch["cartas"] = cartas_limpas
+            alterados[entrada["arquivo"]] = patch
+        com_formato = diff.completar_formatos(patch.get("cartas"), atuais, padrao)
+        if com_formato is not None:
+            patch["cartas"] = com_formato
             alterados[entrada["arquivo"]] = patch
 
     estado["build"] = build

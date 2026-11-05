@@ -1,5 +1,5 @@
 import { $, $$, elemento, botao, icone, link, dataBR, dataElemento, marcar, CLASSES } from "./elementos.js";
-import { nomeClasse, GRUPOS, buscar, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "./logica.js";
+import { nomeClasse, GRUPOS_COMPLETOS, FORMATOS, secoesDoPatch, rotuloDoGrupo, nomeDoGrupo, buscar, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "./logica.js";
 import { carregarDados } from "./dados.js";
 import { definirImagens, desenharCarta, iniciarCarta, atualizarCarta, linhasMudanca } from "./cartas.js";
 import { iniciarEfeitos } from "./efeitos.js";
@@ -125,15 +125,7 @@ function abrirPatch(versao) {
   const titulo = elemento("h2", "", "Patch ");
   titulo.append(elemento("em", "", patch.versao));
   topo.append(titulo, link("Notícia oficial ↗", patch.link, "oficial"));
-  const medalhas = elemento("div", "medalhas");
-  GRUPOS.forEach(([grupo, rotulo], indice) => {
-    const medalha = elemento("div", "medalha " + ["b", "n", "a"][indice]);
-    const numero = elemento("b", "", patch[grupo]);
-    numero.dataset.contar = "";
-    medalha.append(icone(["buff", "nerf", "alterada"][indice]), numero, elemento("small", "", rotulo));
-    medalhas.append(medalha);
-  });
-  detalhe.append(topo, medalhas);
+  detalhe.append(topo);
   if (patch.topicos.length) {
     const resumo = elemento("article", "pergaminho");
     const cabeca = elemento("header");
@@ -156,29 +148,58 @@ function abrirPatch(versao) {
   if (!patch.cartas.length) {
     detalhe.append(elemento("p", "vazio", "Nenhuma carta mudou de custo, ataque, vida ou texto nesta versão."));
   } else {
-    montarMesa(detalhe, patch);
+    // D46: Padrão e Livre em partes separadas; os ids da primeira mesa seguem únicos na página.
+    secoesDoPatch(patch).forEach((secao, indice) => montarSecao(detalhe, patch, secao, indice === 0));
   }
   efeitos.observarMarcas(detalhe);
   efeitos.contar(detalhe);
 }
 
-function montarMesa(raiz, patch) {
+function montarSecao(raiz, patch, secao, primeira) {
+  const bloco = elemento("section", "secao-formato");
+  bloco.dataset.formato = secao.chave;
+  const cabeca = elemento("div", "secao-topo");
+  cabeca.append(elemento("h3", "", secao.rotulo));
+  const medalhas = elemento("div", "medalhas");
+  GRUPOS_COMPLETOS.forEach(([grupo, rotulo], indice) => {
+    const medalha = elemento("div", "medalha " + ["b", "n", "a", "t"][indice]);
+    const numero = elemento("b", "", secao[grupo]);
+    numero.dataset.contar = "";
+    medalha.append(icone(["buff", "nerf", "alterada", "alterada"][indice]), numero, elemento("small", "", rotulo));
+    medalhas.append(medalha);
+  });
+  bloco.append(cabeca, medalhas);
+  if (secao.cartas.length) {
+    montarMesa(bloco, secao.cartas, primeira);
+  } else {
+    bloco.append(elemento("p", "vazio", "Nenhuma alteração relevante para o " + secao.rotulo + " neste patch."));
+  }
+  raiz.append(bloco);
+}
+
+function montarMesa(raiz, cartas, comIds = true) {
   const mesa = elemento("div", "mesa");
   const palco = elemento("div", "palco");
   const mao = elemento("div", "mao");
-  mao.id = "mao";
-  mao.classList.toggle("muitas", patch.cartas.length > 7);
+  if (comIds) {
+    mao.id = "mao";
+  }
+  mao.classList.toggle("muitas", cartas.length > 7);
   mao.setAttribute("role", "group");
   mao.setAttribute("aria-label", "Cartas alteradas");
   const coluna = elemento("div", "foco");
   const foco = elemento("div", "carta");
-  foco.id = "foco";
+  if (comIds) {
+    foco.id = "foco";
+  }
   foco.tabIndex = 0;
   foco.setAttribute("role", "button");
-  let atual = patch.cartas[0];
+  let atual = cartas[0];
   let versao = "depois";
   const mudancas = elemento("div");
-  mudancas.id = "mudancas";
+  if (comIds) {
+    mudancas.id = "mudancas";
+  }
   const desenhar = (animar = true) => {
     atualizarCarta(foco, atual, versao, efeitos, animar);
     mudancas.replaceChildren(linhasMudanca(atual));
@@ -191,9 +212,9 @@ function montarMesa(raiz, patch) {
   palco.append(mao, coluna);
   mesa.append(palco);
   raiz.append(mesa);
-  const n = patch.cartas.length;
+  const n = cartas.length;
   const passo = Math.min(62, 340 / n);
-  patch.cartas.forEach((carta, indice) => {
+  cartas.forEach((carta, indice) => {
     const mini = botao("", "mini");
     mini.style.setProperty("--i", indice);
     mini.style.setProperty("--r", (indice - (n - 1) / 2) * Math.min(8, 48 / n) + "deg");
@@ -240,11 +261,12 @@ function montarCartas() {
   grade.id = "grade-cartas";
   antigas.replaceWith(grade);
   const instancias = dados.patches.flatMap((patch) => patch.cartas);
-  $("#filtro-cartas").replaceChildren(...[["todas", "Todas"], ...GRUPOS].map(([grupo, rotulo]) => {
+  const formatos = instancias.some((carta) => carta.formato) ? FORMATOS : [];
+  $("#filtro-cartas").replaceChildren(...[["todas", "Todas"], ...formatos, ...GRUPOS_COMPLETOS].map(([grupo, rotulo]) => {
     const filtro = botao(rotulo + " ");
     filtro.dataset.grupo = grupo;
     filtro.setAttribute("aria-pressed", String(grupo === "todas"));
-    filtro.append(elemento("span", "", grupo === "todas" ? instancias.length : instancias.filter((carta) => carta.grupo === grupo).length));
+    filtro.append(elemento("span", "", grupo === "todas" ? instancias.length : instancias.filter((carta) => carta.grupo === grupo || carta.formato === grupo).length));
     filtro.addEventListener("click", () => {
       grupoAtivo = grupo;
       $$("#filtro-cartas button").forEach((no) => no.setAttribute("aria-pressed", String(no === filtro)));
@@ -277,7 +299,11 @@ function montarCartas() {
       // Na grade a carta tem uns 170 px: a imagem de 256 basta, mesmo em tela de alta densidade.
       desenharCarta(desenho, carta, "depois", 1);
       const rotulo = elemento("span", "rotulo");
-      rotulo.append(elemento("b", "t-" + carta.grupo, carta.grupo.slice(0, -1)), elemento("span", "", nomeClasse(carta.classe)));
+      const formato = FORMATOS.find(([chave]) => chave === carta.formato);
+      rotulo.append(
+        elemento("b", "t-" + carta.grupo, rotuloDoGrupo(carta.grupo)),
+        elemento("span", "", nomeClasse(carta.classe) + (formato ? " · " + formato[1] : ""))
+      );
       abrir.append(desenho, rotulo);
       abrir.addEventListener("click", () => abrirCarta(carta));
       item.carta = carta;
@@ -325,7 +351,7 @@ function abrirCarta(carta) {
   ));
   $("#historico-carta").replaceChildren(...historico.map((mudanca) => {
     const item = elemento("li");
-    item.append(link("Patch " + mudanca.versao, rotaVersao(mudanca.versao)), elemento("span", "", dataBR(mudanca.data)), elemento("b", "t-" + mudanca.grupo, mudanca.grupo), linhasMudanca(mudanca));
+    item.append(link("Patch " + mudanca.versao, rotaVersao(mudanca.versao)), elemento("span", "", dataBR(mudanca.data)), elemento("b", "t-" + mudanca.grupo, nomeDoGrupo(mudanca.grupo)), linhasMudanca(mudanca));
     return item;
   }));
   atualizarCarta($("#carta-grande"), cartaAberta, versaoCarta, efeitos, false);

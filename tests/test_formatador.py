@@ -135,14 +135,35 @@ def test_carta_que_excede_uma_parte_nao_e_truncada():
         formatador.mensagens("Título\n• " + "a" * 4096, "36.6")
 
 
-def test_bloco_de_cartas_nao_mostra_texto_revisado():
+def test_bloco_de_cartas_mostra_texto_alterado_sem_formato():
+    # Dados sem `formato` (anteriores à D46): uma lista só, agora com o texto alterado (D46 reverte parte da D32).
     cartas = {
         "buffs": [{"dbfId": 1, "nome": "Isiset", "mudancas": [{"campo": "custo", "antes": 7, "depois": 6}]}],
         "nerfs": [],
         "alteradas": [],
         "revisadas": [{"dbfId": 2, "nome": "Gnomaferatu", "mudancas": [{"campo": "texto", "antes": "Remova um card.", "depois": "<b>Grito de Guerra:</b> Remova o card."}]}],
     }
-    assert formatador._bloco(cartas) == "Buffs (1)\n• Isiset: custo 7 → 6"
-    sem_grupo = {"buffs": [], "nerfs": [], "alteradas": []}
+    assert formatador._bloco(cartas) == (
+        "Buffs (1)\n• Isiset: custo 7 → 6\n\n"
+        "Texto alterado (1)\n• Gnomaferatu: texto novo: Grito de Guerra: Remova o card."
+    )
+    sem_grupo = {"buffs": [], "nerfs": [], "alteradas": [], "revisadas": []}
     assert formatador._bloco(sem_grupo) == "Nenhuma carta colecionável mudou."
-    assert formatador._bloco({**sem_grupo, "revisadas": cartas["revisadas"]}) == "Nenhuma carta colecionável mudou."
+
+
+def test_bloco_de_cartas_separa_padrao_e_livre():
+    cartas = {
+        "buffs": [
+            {"dbfId": 1, "nome": "Isiset", "formato": "padrao", "tambem_livre": True, "mudancas": [{"campo": "custo", "antes": 7, "depois": 6}]},
+            {"dbfId": 3, "nome": "Leeroy", "formato": "livre", "mudancas": [{"campo": "ataque", "antes": 6, "depois": 7}]},
+        ],
+        "nerfs": [],
+        "alteradas": [],
+        "revisadas": [{"dbfId": 2, "nome": "Reencarnar", "formato": "livre", "mudancas": [{"campo": "texto", "antes": "a", "depois": "<b>Lendário</b> não"}]}],
+    }
+    assert formatador._bloco(cartas) == (
+        "Padrão\n\nBuffs (1)\n• Isiset: custo 7 → 6 (vale também no Livre)\n\n"
+        "Livre\n\nBuffs (1)\n• Leeroy: ataque 6 → 7\n\nTexto alterado (1)\n• Reencarnar: texto novo: Lendário não"
+    )
+    so_livre = {"buffs": [], "nerfs": [], "alteradas": [], "revisadas": [{**cartas["revisadas"][0]}]}
+    assert formatador._bloco(so_livre).startswith("Padrão\nNenhuma alteração relevante.\n\nLivre\n\nTexto alterado (1)")

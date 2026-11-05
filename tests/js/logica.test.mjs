@@ -12,6 +12,8 @@ import {
   normalizar,
   rotaNoticia,
   rotaPatch,
+  rotuloDoGrupo,
+  secoesDoPatch,
   topicosDoResumo
 } from "../../site/js/logica.js";
 
@@ -71,9 +73,37 @@ test("retorna histórico da carta em ordem do mais novo para o mais antigo", () 
   assert.deepEqual(historicoDaCarta("559", patches).map((patch) => patch.versao), ["36.6", "36.5"]);
 });
 
-test("histórico da carta não mostra o grupo texto revisado", () => {
+test("histórico da carta mostra o texto alterado (D46)", () => {
   const revisado = [{ versao: "37.0", data: "2026-10-12", cartas: { buffs: [], nerfs: [], alteradas: [], revisadas: [{ dbfId: 7, mudancas: [] }] } }];
-  assert.deepEqual(historicoDaCarta("7", revisado), []);
+  assert.deepEqual(historicoDaCarta("7", revisado).map((patch) => patch.versao), ["37.0"]);
+});
+
+test("as seções do patch separam Padrão e Livre e contam cada grupo", () => {
+  const cartas = [
+    { grupo: "buffs", formato: "padrao" },
+    { grupo: "revisadas", formato: "padrao" },
+    { grupo: "nerfs", formato: "livre" },
+    { grupo: "alteradas", formato: "livre" },
+    { grupo: "revisadas", formato: "livre" },
+    { grupo: "buffs" }
+  ];
+  const secoes = secoesDoPatch({ cartas });
+  assert.deepEqual(secoes.map((secao) => secao.chave), ["padrao", "livre", "sem"]);
+  assert.deepEqual(secoes.map((secao) => secao.rotulo), ["Padrão", "Livre", "Sem formato definido"]);
+  const [padrao, livre] = secoes;
+  assert.deepEqual([padrao.buffs, padrao.nerfs, padrao.alteradas, padrao.revisadas], [1, 0, 0, 1]);
+  assert.deepEqual([livre.buffs, livre.nerfs, livre.alteradas, livre.revisadas], [0, 1, 1, 1]);
+});
+
+test("sem o formato nas cartas o patch tem uma seção só, e um formato vazio continua aparecendo", () => {
+  assert.deepEqual(secoesDoPatch({ cartas: [{ grupo: "buffs" }] }).map((secao) => secao.chave), ["todas"]);
+  assert.deepEqual(secoesDoPatch({ cartas: [] }).map((secao) => secao.chave), ["todas"]);
+  const so_livre = secoesDoPatch({ cartas: [{ grupo: "nerfs", formato: "livre" }] });
+  assert.deepEqual(so_livre.map((secao) => [secao.chave, secao.cartas.length]), [["padrao", 0], ["livre", 1]]);
+});
+
+test("rótulo do grupo para a etiqueta da carta", () => {
+  assert.deepEqual(["buffs", "nerfs", "alteradas", "revisadas"].map(rotuloDoGrupo), ["buff", "nerf", "alterada", "texto"]);
 });
 
 test("busca mostra uma carta por nome, só do Padrão ou Selvagem, preferindo o Núcleo", () => {

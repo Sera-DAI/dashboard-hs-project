@@ -56,29 +56,56 @@ function formatarMudanca(mudanca) {
 }
 
 function linhaCarta(carta) {
-  return `• ${carta.nome}: ${(carta.mudancas ?? []).map(formatarMudanca).join(", ")}`;
+  const nota = carta.tambem_livre ? " (vale também no Livre)" : "";
+  return `• ${carta.nome}: ${(carta.mudancas ?? []).map(formatarMudanca).join(", ")}${nota}`;
 }
 
-export function blocoCartas(cartas) {
-  if (!cartas) {
-    return "Lista de cartas indisponível para este patch.";
-  }
+const GRUPOS_DO_AVISO = [
+  ["buffs", "Buffs"],
+  ["nerfs", "Nerfs"],
+  ["alteradas", "Alteradas"],
+  ["revisadas", "Texto alterado"]
+];
 
-  const grupos = [
-    ["buffs", "Buffs"],
-    ["nerfs", "Nerfs"],
-    ["alteradas", "Alteradas"]
-  ];
+function gruposDoFormato(cartas, formato) {
   const partes = [];
 
-  for (const [chave, titulo] of grupos) {
-    const lista = [...(cartas[chave] ?? [])].sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
+  for (const [chave, titulo] of GRUPOS_DO_AVISO) {
+    const lista = (cartas[chave] ?? [])
+      .filter((carta) => (carta.formato ?? null) === formato)
+      .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
     if (lista.length > 0) {
       partes.push(`${titulo} (${lista.length})\n${lista.map(linhaCarta).join("\n")}`);
     }
   }
 
+  return partes;
+}
+
+// D46: cada patch separa o Padrão do Livre; sem o formato nas cartas (dados antigos), uma lista só.
+export function blocoCartas(cartas) {
+  if (!cartas) {
+    return "Lista de cartas indisponível para este patch.";
+  }
+
+  const todas = GRUPOS_DO_AVISO.flatMap(([chave]) => cartas[chave] ?? []);
+
+  if (todas.some((carta) => carta.formato)) {
+    const secoes = [["padrao", "Padrão"], ["livre", "Livre"]].map(([formato, nome]) => {
+      const grupos = gruposDoFormato(cartas, formato);
+      return grupos.length > 0 ? `${nome}\n\n${grupos.join("\n\n")}` : `${nome}\nNenhuma alteração relevante.`;
+    });
+    const sem = gruposDoFormato(cartas, null);
+
+    if (sem.length > 0) {
+      secoes.push(`Sem formato definido\n\n${sem.join("\n\n")}`);
+    }
+
+    return secoes.join("\n\n");
+  }
+
+  const partes = gruposDoFormato(cartas, null);
   return partes.length > 0 ? partes.join("\n\n") : "Nenhuma carta colecionável mudou.";
 }
 
@@ -141,7 +168,8 @@ function mudancasDaCarta(ids, patch) {
   const grupos = [
     ["buffs", "buff"],
     ["nerfs", "nerf"],
-    ["alteradas", "alterada"]
+    ["alteradas", "alterada"],
+    ["revisadas", "texto alterado"]
   ];
   const linhas = [];
 
@@ -200,6 +228,10 @@ export function formatarHistorico(patches, dashboard) {
       [patch.nerfs ?? 0, "nerf", "nerfs"],
       [patch.alteradas ?? 0, "alterada", "alteradas"]
     ];
+    if ((patch.revisadas ?? 0) > 0) {
+      grupos.push([patch.revisadas, "texto alterado", "textos alterados"]);
+    }
+
     linhas.push(`• ${patch.versao} (${dataPt(patch.data)}): ${grupos.map(([quantidade, singular, plural]) => `${quantidade} ${quantidade === 1 ? singular : plural}`).join(", ")}`);
   }
 

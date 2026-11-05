@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { prepararPatches, imagemDaCarta, marcaMudanca, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "../../site/js/logica.js";
+import { prepararPatches, nomeDoGrupo, imagemDaCarta, marcaMudanca, filtrarCarta, lerRota, rotaVersao, assuntoNoticia } from "../../site/js/logica.js";
 import { carregarDados } from "../../site/js/dados.js";
 import { ligarImagem } from "../../site/js/cartas.js";
 import { linksMeta } from "../../site/js/meta.js";
@@ -26,7 +26,11 @@ test("M5 reconstrói atributos não alterados, desfaz revisadas e não muda os J
   const original = structuredClone(fixture);
   const [vazia, revisada, nova, antiga] = preparados;
   assert.equal(vazia.cartas.length, 0);
-  assert.equal(revisada.cartas.length, 0);
+  // D46: o texto alterado aparece, como grupo "revisadas", e desfaz o diff da mesma forma.
+  assert.equal(revisada.cartas.length, 1);
+  assert.equal(revisada.cartas[0].grupo, "revisadas");
+  assert.equal(revisada.revisadas, 1);
+  assert.equal(revisada.buffs + revisada.nerfs + revisada.alteradas, 0);
   assert.equal(nova.cartas[0].antes.custo, 2);
   assert.equal(nova.cartas[0].depois.custo, 3);
   assert.equal(nova.cartas[0].depois.texto, "<b>Texto antigo.</b>");
@@ -172,4 +176,14 @@ test("M5 meta oferece só links públicos da D33, por classe e formato, sem font
   assert.match(linksMeta("MAGE", "selvagem")[0][1], /gameType=RANKED_WILD$/);
   assert.match(linksMeta("MAGE", "selvagem")[1][1], /format=1&player_class=MAGE&rank=diamond_to_legend&period=past_2_weeks&min_games=100$/);
   assert.ok(linksMeta("MAGE", "padrao").every(([, href]) => !href.includes("hearthstone-decks")));
+});
+
+test("o filtro de cartas vale para grupo e para formato, e o nome do grupo no histórico é legível", () => {
+  const carta = { nome: "Isiset", grupo: "buffs", formato: "livre" };
+  assert.equal(filtrarCarta(carta, "", "livre"), true);
+  assert.equal(filtrarCarta(carta, "", "padrao"), false);
+  assert.equal(filtrarCarta(carta, "isi", "buffs"), true);
+  assert.equal(filtrarCarta(carta, "xyz", "livre"), false);
+  assert.equal(nomeDoGrupo("revisadas"), "texto alterado");
+  assert.equal(nomeDoGrupo("buffs"), "buffs");
 });

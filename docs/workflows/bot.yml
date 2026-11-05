@@ -44,10 +44,29 @@ jobs:
             echo "A publicação não informou o endereço do Worker; o webhook não foi alterado."
             exit 1
           fi
-          curl -sS --fail -o /dev/null --request POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setWebhook" \
+          # Chama um método do Telegram e mostra só ok, código e descrição do erro.
+          # Nunca imprime a resposta inteira nem a URL, que leva o token.
+          chamar_telegram() {
+            local metodo="$1"
+            shift
+            local resposta
+            if ! resposta=$(curl -sS --request POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/${metodo}" "$@"); then
+              echo "${metodo}: o curl não conseguiu falar com o Telegram."
+              return 1
+            fi
+            if [ -z "${resposta}" ]; then
+              echo "${metodo}: o Telegram respondeu vazio."
+              return 1
+            fi
+            printf '%s' "${resposta}" | jq -r --arg metodo "${metodo}" \
+              '"\($metodo): ok=\(.ok) código=\(.error_code // "-") descrição=\((.description // "-") | tostring | gsub("[\r\n]"; " "))"' \
+              || echo "${metodo}: a resposta do Telegram não era JSON."
+            printf '%s' "${resposta}" | jq -e '.ok == true' > /dev/null
+          }
+          chamar_telegram setWebhook \
             --data-urlencode "url=${WEBHOOK_URL}" \
             --data-urlencode "secret_token=${TELEGRAM_WEBHOOK_SECRET}" \
             --data-urlencode 'allowed_updates=["message"]' \
             --data-urlencode 'drop_pending_updates=true'
-          curl -sS --fail -o /dev/null --request POST "https://api.telegram.org/bot${TELEGRAM_TOKEN}/setMyCommands" \
+          chamar_telegram setMyCommands \
             --data-urlencode 'commands=[{"command":"patch","description":"Último patch ou uma versão"},{"command":"carta","description":"Ficha e mudanças de uma carta"},{"command":"historico","description":"Últimos 10 patches"},{"command":"noticias","description":"Últimas notícias ou uma específica"},{"command":"decks","description":"Links de decks de uma classe"},{"command":"meta","description":"Estatísticas do meta (links)"},{"command":"ajuda","description":"Lista de comandos"}]'

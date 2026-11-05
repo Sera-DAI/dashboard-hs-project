@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 
-from hsds import blizzard, formatador, historico, http
+from hsds import blizzard, formatador, historico, http, resumo_ia
 
 DADOS = Path(__file__).parent / "dados"
 
@@ -242,3 +242,17 @@ def test_fim_de_lote_manda_texto_e_nao_lista_ao_telegram(monkeypatch, tmp_path):
     assert historico.main(pasta, dormir=lambda _: None) == 0
     assert len(enviados) == 1 and isinstance(enviados[0], str)
     assert "Histórico completo desde 25/04/2026." in enviados[0]
+
+
+def test_resumo_do_historico_guarda_o_modelo_reserva(monkeypatch):
+    def gerar(*args, **kwargs):
+        topicos = resumo_ia.Topicos(["Resumo um.", "Resumo dois.", "Resumo três."])
+        topicos.modelo = resumo_ia.MODELOS_RESERVA[1]
+        return topicos
+
+    monkeypatch.setattr(resumo_ia, "gerar", gerar)
+    noticia = type("Noticia", (), {"texto": "Texto.", "titulo": "Título"})()
+    resumo = historico._resumo(noticia, {"cartas": None}, False, "chave")
+    assert resumo["modelo"] == resumo_ia.MODELOS_RESERVA[1]
+    assert resumo["topicos"] == ["Resumo um.", "Resumo dois.", "Resumo três."]
+    json.dumps(resumo)

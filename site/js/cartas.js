@@ -115,6 +115,9 @@ export function linhasMudanca(carta) {
     }
     lista.append(linha);
   }
+  if (carta.tambem_livre) {
+    lista.append(elemento("li", "tambem-livre", "Vale também no Livre"));
+  }
   return lista;
 }
 

@@ -2,6 +2,8 @@
 
 import re
 
+from hsds.formatos import FORA_DOS_FORMATOS
+
 CAMPOS = ("custo", "ataque", "vida", "durabilidade", "armadura", "texto")
 GRUPOS = ("buffs", "nerfs", "alteradas", "revisadas")
 
@@ -38,11 +40,40 @@ def _grupo(mudancas: list[dict]) -> str:
     return sentidos.pop() if len(sentidos) == 1 else "alteradas"
 
 
-def comparar(antes: dict, depois: dict) -> dict:
+def _formato(chave, padrao):
+    return None if padrao is None else ("padrao" if chave in padrao else "livre")
+
+
+def _unir_repetidas(resultado: dict) -> None:
+    """Uma carta do Livre igual a uma do Padrão (mesmo nome e mesmas mudanças) é a mesma mudança vista pelos dois formatos.
+
+    Acontece com as cartas do Núcleo, que têm uma cópia na coleção original: fica só a do Padrão, marcada
+    com `tambem_livre`, em vez de a mesma linha aparecer nas duas seções.
+    """
+    padrao = {}
+    for grupo in GRUPOS:
+        for carta in resultado[grupo]:
+            if carta.get("formato") == "padrao":
+                padrao[(carta["nome"], repr(carta["mudancas"]))] = carta
+    for grupo in GRUPOS:
+        mantidas = []
+        for carta in resultado[grupo]:
+            gemea = padrao.get((carta["nome"], repr(carta["mudancas"]))) if carta.get("formato") == "livre" else None
+            if gemea is None:
+                mantidas.append(carta)
+            else:
+                gemea["tambem_livre"] = True
+        resultado[grupo] = mantidas
+
+
+def comparar(antes: dict, depois: dict, padrao=None) -> dict:
+    """Compara as duas builds. `padrao` (opcional) é o conjunto de dbfId do Padrão, como texto; com ele cada carta ganha `formato`."""
     resultado = {grupo: [] for grupo in GRUPOS}
     for chave in sorted(antes["cartas"].keys() & depois["cartas"].keys(), key=int):
         antiga = antes["cartas"][chave]
         nova = depois["cartas"][chave]
+        if nova.get("colecao") in FORA_DOS_FORMATOS:
+            continue
         mudancas = []
         for campo in CAMPOS:
             anterior = antiga.get(campo)
@@ -54,12 +85,44 @@ def comparar(antes: dict, depois: dict) -> dict:
             mudancas.append({"campo": campo, "antes": anterior, "depois": atual})
         if not mudancas:
             continue
-        resultado[_grupo(mudancas)].append({
+        carta = {
             "dbfId": int(chave),
             "nome": nova.get("nome"),
             "classe": nova.get("classe"),
             "mudancas": mudancas,
-        })
+        }
+        formato = _formato(chave, padrao)
+        if formato:
+            carta["formato"] = formato
+        resultado[_grupo(mudancas)].append(carta)
+    _unir_repetidas(resultado)
+    return resultado
+
+
+def completar_formatos(cartas: dict | None, atuais: dict | None, padrao) -> dict | None:
+    """Põe `formato` nas cartas de um diff já gravado e tira as que não valem em nenhum formato; None se nada muda.
+
+    `atuais` é o cartas.json mais novo (dá a coleção de cada carta) e `padrao`, o conjunto do Padrão de hoje.
+    Em patches antigos, uma carta que já saiu do Padrão aparece como Livre: o arquivo não guarda o formato da época.
+    """
+    if cartas is None or atuais is None:
+        return None
+    resultado = {grupo: [] for grupo in GRUPOS}
+    mudou = False
+    for grupo in GRUPOS:
+        for carta in cartas.get(grupo, []):
+            chave = str(carta["dbfId"])
+            colecao = (atuais["cartas"].get(chave) or {}).get("colecao")
+            if colecao in FORA_DOS_FORMATOS:
+                mudou = True
+                continue
+            if "formato" not in carta and padrao is not None:
+                carta = {**carta, "formato": _formato(chave, padrao)}
+                mudou = True
+            resultado[grupo].append(carta)
+    if not mudou:
+        return None
+    _unir_repetidas(resultado)
     return resultado
 
 
