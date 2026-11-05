@@ -1,8 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="56" height="56" viewBox="0 0 56 56" role="img" aria-label="Codex">
-  <rect x="1" y="1" width="54" height="54" rx="14" fill="#07080f" stroke="#a78bfa" stroke-opacity=".6" stroke-width="2"/>
-  <g transform="translate(14 14) scale(1.1667)" fill="#f5f2ea">
-    <rect x="1.5" y="3" width="21" height="18" rx="3.5" fill="none" stroke="#f5f2ea" stroke-width="2"/>
-    <path d="M6 9l3.5 3L6 15" fill="none" stroke="#f5f2ea" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M12 15.5h6" stroke="#f5f2ea" stroke-width="2" stroke-linecap="round"/>
-  </g>
-</svg>

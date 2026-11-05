@@ -1,0 +1,13 @@
+# Cabeçalhos de segurança do Cloudflare Pages (https://developers.cloudflare.com/pages/configuration/headers/).
+# A CSP libera só o que a página usa: o próprio domínio, o Google Fonts (CSS e fontes), o CDN da Blizzard
+# e o render do HearthstoneJSON (imagens das cartas). O hash em script-src-attr é o do handler
+# onload="this.media='all'" do <link> das fontes em index.html; mudar esse texto exige gerar o hash de novo:
+#   printf "this.media='all'" | openssl dgst -sha256 -binary | openssl base64 -A
+# O teste tests/js/config.test.mjs confere esse hash. Qualquer host novo, <style> ou on...= embutido, data: ou
+# @font-face próprio (font-src não tem 'self') pede a CSP atualizada junto com a mudança.
+/*
+  Content-Security-Policy: default-src 'self'; script-src 'self'; script-src-attr 'unsafe-hashes' 'sha256-MhtPZXr7+LpJUY5qtMutB+qWfQtMaPccfe7QXtCcEYc='; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: https://art.hearthstonejson.com https://d15f34w2p8l1cc.cloudfront.net; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'; object-src 'none'
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
+  Strict-Transport-Security: max-age=31536000
